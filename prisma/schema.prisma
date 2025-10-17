@@ -1,0 +1,35 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Meeting {
+  id                String   @id @default(uuid())
+  title             String?
+  status            String   @default("active") // active, processing, completed
+  audioPath         String?  // Path to saved audio file
+  transcript        String   @default("[]") // JSON array of transcript strings
+  transcriptSegments String  @default("[]") // JSON array of TranscriptSegment objects
+  duration          Int?     // Duration in seconds
+
+  // Suggestions (JSON stored as text)
+  topics            String   @default("[]") // JSON array
+  decisions         String   @default("[]") // JSON array
+  actions           String   @default("[]") // JSON array
+
+  // Summary (JSON stored as text)
+  summary           String?  // JSON object or null
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
