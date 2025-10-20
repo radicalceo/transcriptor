@@ -18,14 +18,15 @@ Exigences:
 - Ne pas halluciner d'assignations ou de dates si non mentionnées.
 - Détecter et ignorer les apartés sans rapport (blagues, bruits).`
 
-const FINAL_SYSTEM_PROMPT = `Tu es un synthétiseur de réunions. Tu produis un rapport concis et actionnable.
+const FINAL_SYSTEM_PROMPT = `Tu es un synthétiseur expert de réunions. Tu produis des rapports détaillés, approfondis et actionnables.
 Exigences:
 - Sortie stricte en JSON conforme au schéma FINAL.
 - Zéro texte hors JSON.
 - Pas d'hallucinations: s'abstenir quand l'info n'existe pas.
 - Écrire en français s'il y a majoritairement du FR, sinon en anglais.
-- Style: clair, factuel, sans jargon superflu.
-- Pour les sujets (topics): identifier les grands thèmes discutés et fournir une mini-synthèse de chaque sujet.
+- Style: clair, factuel, professionnel, avec beaucoup de détails et de contexte.
+- Pour la vue synthétique: des résumés courts et clairs.
+- Pour la vue détaillée: des analyses approfondies avec beaucoup de contexte, des explications détaillées et des nuances.
 - IMPORTANT: Même si la conversation est courte ou informelle, analyse le contenu et produis un résumé basé sur ce qui a été dit. Ne pas dire "Aucun contenu" si du texte est fourni.`
 
 export async function analyzeLiveTranscript(
@@ -108,21 +109,45 @@ ${JSON.stringify(validatedSuggestions, null, 2)}`
 
 Contrainte:
 - Prioriser les éléments VALIDÉS si fournis.
-- Pour "topics": identifier les grands sujets abordés et fournir une mini-synthèse pour chacun.
-- Pour "open_questions": lister les questions restées sans réponse et les follow-ups nécessaires.
+- Pour la VUE SYNTHÉTIQUE (summary, actions, decisions, open_questions, topics):
+  * "summary": 2-3 phrases claires résumant l'essence de la réunion
+  * "topics": identifier les grands sujets avec une synthèse courte (1-2 lignes) pour chacun
+  * "actions": liste claire et concise des actions à suivre
+  * "decisions": liste claire des décisions prises
+  * "open_questions": liste des questions ouvertes
+
+- Pour la VUE DÉTAILLÉE (detailed):
+  * "summary_detailed": un résumé approfondi de 3-5 paragraphes décrivant le contexte, les enjeux, les discussions principales et les conclusions de la réunion. Sois verbeux et détaillé.
+  * "actions_detailed": un paragraphe détaillé (10-15 lignes) expliquant le contexte des actions, pourquoi elles sont nécessaires, les enjeux et les priorités. Développe le contexte et les implications.
+  * "decisions_detailed": un paragraphe détaillé (10-15 lignes) expliquant le contexte des décisions, comment elles ont été prises, leurs implications et leur importance. Sois explicatif et contextuel.
+  * "open_questions_detailed": un paragraphe détaillé (10-15 lignes) expliquant les questions restées sans réponse, pourquoi elles sont importantes, et ce qui doit être clarifié. Développe les enjeux et implications.
+  * "topics_detailed": pour chaque sujet, un résumé TRÈS détaillé sous forme de PARAGRAPHES DESCRIPTIFS (15-20 lignes minimum) couvrant:
+    - Le contexte et les enjeux du sujet
+    - Les discussions principales avec les différents points de vue exprimés
+    - Les préoccupations et problématiques soulevées
+    - Les solutions ou pistes évoquées
+    - Les implications et conséquences discutées
+    - Utilise des PARAGRAPHES complets et fluides, PAS de bullet points ou de listes. Rédige un texte narratif et descriptif.
 
 Réponds EXCLUSIVEMENT avec un JSON valide selon ce schéma:
 {
-  "summary": "string (synthèse générale de la réunion)",
+  "summary": "string (synthèse courte en 2-3 phrases)",
   "actions": [{"text":"string","assignee":"string|null","due_date":"YYYY-MM-DD|null","priority":"low|medium|high|null"}],
   "decisions": [{"text":"string"}],
   "open_questions": ["string (questions ouvertes et follow-ups)"],
-  "topics": [{"title":"string","summary":"string (mini synthèse du sujet)"}]
+  "topics": [{"title":"string","summary":"string (synthèse courte de 1-2 lignes)"}],
+  "detailed": {
+    "summary_detailed": "string (résumé détaillé de 3-5 paragraphes approfondis)",
+    "actions_detailed": "string (analyse détaillée de 10-15 lignes)",
+    "decisions_detailed": "string (analyse détaillée de 10-15 lignes)",
+    "open_questions_detailed": "string (analyse détaillée de 10-15 lignes)",
+    "topics_detailed": [{"title":"string","detailed_summary":"string (analyse très détaillée de 15-20 lignes minimum avec bullet points et contexte approfondi)"}]
+  }
 }`
 
     const message = await anthropic.messages.create({
       model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 4096,
+      max_tokens: 8192,
       temperature: 0.3,
       system: FINAL_SYSTEM_PROMPT,
       messages: [
@@ -151,6 +176,7 @@ Réponds EXCLUSIVEMENT avec un JSON valide selon ce schéma:
       decisions: parsed.decisions || [],
       open_questions: parsed.open_questions || [],
       topics: parsed.topics || [],
+      detailed: parsed.detailed || undefined,
       // Keep deprecated fields for backward compatibility
       highlights: parsed.highlights || [],
       risks: parsed.risks || [],

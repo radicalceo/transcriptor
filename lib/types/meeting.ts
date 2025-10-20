@@ -28,6 +28,19 @@ export interface Summary {
   decisions: Decision[] // Décisions
   open_questions?: string[] // Questions ouvertes et follow-ups
   topics: TopicDetail[] // Grands sujets abordés avec mini synthèse
+  // Detailed summaries (5-10 lignes chacun)
+  detailed?: {
+    summary_detailed?: string // Résumé général détaillé
+    actions_detailed?: string // Contexte détaillé des actions
+    decisions_detailed?: string // Contexte détaillé des décisions
+    open_questions_detailed?: string // Contexte détaillé des questions ouvertes
+    topics_detailed?: Array<{
+      title: string
+      detailed_summary: string // Résumé détaillé du sujet (5-10 lignes)
+    }>
+  }
+  // Document édité au format HTML (pour la vue détaillée WYSIWYG)
+  editedDocument?: string
   // Deprecated fields (kept for backward compatibility)
   highlights?: Array<{
     quote: string
@@ -40,6 +53,7 @@ export interface Summary {
 export interface Meeting {
   id: string
   title?: string // Optional title for the meeting
+  audioPath?: string // Path to saved audio file
   transcript: string[] // For backward compatibility (live recording)
   transcriptSegments?: TranscriptSegment[] // For uploaded files with timestamps
   suggestions: Suggestions

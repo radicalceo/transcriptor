@@ -24,23 +24,23 @@ function mergeIncompleteSegments(segments: TranscriptSegment[]): TranscriptSegme
     const nextStartsLowercase = /^[a-zàâäéèêëïîôùûüÿœæç]/.test(nextText)
 
     // Cas 1: Le segment suivant commence par une minuscule -> TOUJOURS fusionner (continuation évidente)
-    // sauf si le délai est vraiment énorme (> 60s = changement de sujet probable)
-    if (nextStartsLowercase && timeDiff < 60) {
+    // sauf si le délai est vraiment énorme (> 5s = pause significative)
+    if (nextStartsLowercase && timeDiff < 5) {
       currentSegment.text += ' ' + nextSegment.text
       lastSegmentTimestamp = nextSegment.timestamp
       continue
     }
 
     // Cas 2: Le segment actuel se termine sans ponctuation forte -> fusionner si délai raisonnable
-    // Pour les segments incomplets, on accepte des pauses plus longues (jusqu'à 30s)
-    if (!endsWithStrongPunctuation && timeDiff < 30) {
+    // Pour les segments incomplets, on accepte des pauses modérées (jusqu'à 4s)
+    if (!endsWithStrongPunctuation && timeDiff < 4) {
       currentSegment.text += ' ' + nextSegment.text
       lastSegmentTimestamp = nextSegment.timestamp
       continue
     }
 
-    // Cas 3: Pause très courte (< 2s) -> fusionner même avec ponctuation
-    if (timeDiff < 2) {
+    // Cas 3: Pause très courte (< 1s) -> fusionner même avec ponctuation
+    if (timeDiff < 1) {
       currentSegment.text += ' ' + nextSegment.text
       lastSegmentTimestamp = nextSegment.timestamp
       continue

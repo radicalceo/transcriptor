@@ -30,7 +30,14 @@ export default function MeetingPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const recognitionRef = useRef<any>(null)
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const audioSaveIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const transcriptRef = useRef<HTMLDivElement>(null)
+  const audioChunksRef = useRef<Blob[]>([])
+  const pendingChunksRef = useRef<Blob[]>([])
+  const isRecordingRef = useRef<boolean>(false)
+  const speechStreamRef = useRef<MediaStream | null>(null)
+  const recordStreamRef = useRef<MediaStream | null>(null)
+  const lastSpeechRestartRef = useRef<number>(0)
 
   // Load meeting data
   useEffect(() => {
@@ -85,15 +92,34 @@ export default function MeetingPage() {
 
   // Start recording (only for live mode, not for completed uploads)
   useEffect(() => {
-    if (!meeting || isRecording) return
+    if (isRecordingRef.current) return // Éviter de démarrer plusieurs fois
+    if (!meeting) return
     if (meeting.status === 'processing' || meeting.status === 'completed') return // Skip mic for uploads and completed meetings
 
     const startRecording = async () => {
       try {
-        // Request microphone permission
+        // Request microphone permission - UN SEUL stream
         const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            sampleRate: 44100,
+          },
         })
+
+        console.log('🎙️ Microphone stream obtained')
+        console.log(`📊 Audio tracks: ${stream.getAudioTracks().length}`)
+        stream.getAudioTracks().forEach((track, index) => {
+          console.log(`   Track ${index}: ${track.label}, enabled: ${track.enabled}, muted: ${track.muted}`)
+        })
+
+        // Stocker le stream principal
+        speechStreamRef.current = stream
+
+        // Cloner le stream pour MediaRecorder (pour éviter les conflits)
+        const recordStream = stream.clone()
+        console.log('🎙️ Recording stream cloned')
+        recordStreamRef.current = recordStream
 
         // Setup Web Speech API for transcription (Chrome/Edge)
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -126,21 +152,147 @@ export default function MeetingPage() {
           }
 
           recognition.onerror = (event: any) => {
-            console.error('Speech recognition error:', event.error)
+            // Ignorer l'erreur "aborted" qui est normale lors de l'arrêt
+            if (event.error !== 'aborted' && event.error !== 'no-speech') {
+              console.error('Speech recognition error:', event.error)
+            }
+          }
+
+          // Redémarrer automatiquement la reconnaissance si elle s'arrête
+          recognition.onend = () => {
+            // Si isRecordingRef est encore true, c'est que l'utilisateur n'a pas arrêté manuellement
+            // Donc on redémarre automatiquement, mais avec une limite pour éviter les boucles
+            if (isRecordingRef.current && recognitionRef.current) {
+              const now = Date.now()
+              const timeSinceLastRestart = now - lastSpeechRestartRef.current
+
+              // Ne redémarrer que si ça fait plus d'1 seconde depuis le dernier redémarrage
+              if (timeSinceLastRestart > 1000) {
+                console.log('🔄 Speech recognition stopped unexpectedly, restarting...')
+                lastSpeechRestartRef.current = now
+                try {
+                  recognition.start()
+                } catch (error) {
+                  console.error('Error restarting recognition:', error)
+                }
+              } else {
+                console.warn('⚠️ Speech recognition restarting too frequently, skipping restart')
+              }
+            }
           }
 
           recognition.start()
           recognitionRef.current = recognition
           setIsRecording(true)
+          isRecordingRef.current = true
         } else {
           alert(
             'La reconnaissance vocale n\'est pas supportée par votre navigateur. Utilisez Chrome ou Edge.'
           )
         }
 
-        // Setup MediaRecorder for audio recording (optional - for future upload)
-        const mediaRecorder = new MediaRecorder(stream)
+        // Setup MediaRecorder for audio recording
+        // Détecter le meilleur format supporté (priorité à MP4)
+        let options: MediaRecorderOptions = {}
+        let fileExtension = 'webm' // default
+
+        if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          options = { mimeType: 'audio/mp4' }
+          fileExtension = 'mp4'
+          console.log('✅ Using audio/mp4')
+        } else if (MediaRecorder.isTypeSupported('audio/mp4;codecs=mp4a.40.2')) {
+          options = { mimeType: 'audio/mp4;codecs=mp4a.40.2' }
+          fileExtension = 'mp4'
+          console.log('✅ Using audio/mp4;codecs=mp4a.40.2')
+        } else if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          options = { mimeType: 'audio/webm;codecs=opus' }
+          fileExtension = 'webm'
+          console.log('✅ Using audio/webm;codecs=opus (MP4 not supported)')
+        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+          options = { mimeType: 'audio/webm' }
+          fileExtension = 'webm'
+          console.log('✅ Using audio/webm (MP4 not supported)')
+        } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+          options = { mimeType: 'audio/ogg;codecs=opus' }
+          fileExtension = 'ogg'
+          console.log('✅ Using audio/ogg;codecs=opus (MP4 not supported)')
+        } else {
+          console.log('⚠️ Using default audio format')
+        }
+
+        const mediaRecorder = new MediaRecorder(recordStream, options)
+        const mimeType = options.mimeType || 'audio/webm' // Stocker pour usage ultérieur
+
+        mediaRecorder.ondataavailable = (event) => {
+          console.log(`🎤 ondataavailable triggered, data size: ${event.data.size} bytes`)
+          if (event.data.size > 0) {
+            // Ajouter au buffer local pour la fin du meeting
+            audioChunksRef.current.push(event.data)
+            // Ajouter aux chunks en attente d'envoi
+            pendingChunksRef.current.push(event.data)
+            console.log(`✅ Chunk added. Total chunks: ${audioChunksRef.current.length}, Pending: ${pendingChunksRef.current.length}`)
+          } else {
+            console.log('⚠️ Empty chunk received')
+          }
+        }
+
+        // Start recording with chunks every 1 second (pour tester)
+        console.log('🎬 Starting MediaRecorder...')
+        mediaRecorder.start(1000) // Générer des chunks toutes les secondes
+        console.log(`📊 MediaRecorder started, state: ${mediaRecorder.state}`)
         mediaRecorderRef.current = mediaRecorder
+
+        // Sauvegarder les chunks audio périodiquement (toutes les 30 secondes)
+        const saveInterval = setInterval(async () => {
+          console.log('🔄 Audio save interval triggered')
+          console.log(`📊 MediaRecorder state: ${mediaRecorder.state}`)
+          console.log(`📦 Pending chunks: ${pendingChunksRef.current.length}`)
+          console.log(`📦 All chunks: ${audioChunksRef.current.length}`)
+
+          // Forcer la récupération des données disponibles
+          if (mediaRecorder.state === 'recording') {
+            console.log('📢 Calling requestData()...')
+            mediaRecorder.requestData()
+          } else {
+            console.log(`⚠️ MediaRecorder not recording (state: ${mediaRecorder.state})`)
+          }
+
+          // Attendre un peu pour que ondataavailable se déclenche
+          await new Promise(resolve => setTimeout(resolve, 100))
+
+          console.log(`📦 After requestData, pending chunks: ${pendingChunksRef.current.length}`)
+
+          if (pendingChunksRef.current.length > 0) {
+            // Créer un blob avec tous les chunks en attente
+            const blob = new Blob(pendingChunksRef.current, { type: mimeType })
+
+            // Vider les chunks en attente
+            pendingChunksRef.current = []
+
+            // Envoyer au serveur
+            const formData = new FormData()
+            formData.append('audio', blob, `meeting-${meetingId}-chunk.${fileExtension}`)
+            formData.append('meetingId', meetingId)
+            formData.append('isPartial', 'true')
+
+            try {
+              console.log(`📤 Sending audio chunk (${blob.size} bytes)...`)
+              await fetch('/api/meeting/save-audio', {
+                method: 'POST',
+                body: formData,
+              })
+              console.log(`✅ Audio chunk sent successfully (${blob.size} bytes)`)
+            } catch (error) {
+              console.error('❌ Error sending audio chunk:', error)
+            }
+          } else {
+            console.log('⚠️ No audio chunks to send yet')
+          }
+        }, 30000) // Toutes les 30 secondes
+
+        console.log(`✅ Audio save interval created (ID: ${saveInterval})`)
+
+        audioSaveIntervalRef.current = saveInterval
       } catch (error) {
         console.error('Error starting recording:', error)
         alert('Impossible d\'accéder au microphone')
@@ -150,14 +302,32 @@ export default function MeetingPage() {
     startRecording()
 
     return () => {
+      console.log('🧹 useEffect cleanup called')
+      isRecordingRef.current = false // Empêcher le redémarrage automatique lors du démontage
       if (recognitionRef.current) {
         recognitionRef.current.stop()
+        recognitionRef.current = null
       }
       if (mediaRecorderRef.current) {
         mediaRecorderRef.current.stop()
+        mediaRecorderRef.current = null
+      }
+      if (audioSaveIntervalRef.current) {
+        console.log('🧹 Cleaning up audio save interval')
+        clearInterval(audioSaveIntervalRef.current)
+        audioSaveIntervalRef.current = null
+      }
+      // Arrêter les streams
+      if (speechStreamRef.current) {
+        speechStreamRef.current.getTracks().forEach(track => track.stop())
+        speechStreamRef.current = null
+      }
+      if (recordStreamRef.current) {
+        recordStreamRef.current.getTracks().forEach(track => track.stop())
+        recordStreamRef.current = null
       }
     }
-  }, [meeting, meetingId, isRecording])
+  }, [meetingId, meeting?.id, meeting?.status])
 
   // Poll for suggestions every 5 seconds
   useEffect(() => {
@@ -215,19 +385,92 @@ export default function MeetingPage() {
   }, [transcript, transcriptBlocks, meeting?.status])
 
   const handleEndMeeting = async () => {
+    console.log('🛑 handleEndMeeting called')
     setIsEnding(true)
 
     // Stop recording
+    setIsRecording(false)
+    isRecordingRef.current = false // Empêcher le redémarrage automatique
+    console.log('🛑 Recording stopped')
+
     if (recognitionRef.current) {
+      console.log('🛑 Stopping recognition')
       recognitionRef.current.stop()
     }
     if (pollIntervalRef.current) {
+      console.log('🛑 Clearing poll interval')
       clearInterval(pollIntervalRef.current)
     }
-    setIsRecording(false)
+    if (audioSaveIntervalRef.current) {
+      console.log('🛑 Clearing audio save interval')
+      clearInterval(audioSaveIntervalRef.current)
+    }
 
+    // Arrêter les streams
+    if (speechStreamRef.current) {
+      console.log('🛑 Stopping speech stream')
+      speechStreamRef.current.getTracks().forEach(track => track.stop())
+    }
+    if (recordStreamRef.current) {
+      console.log('🛑 Stopping record stream')
+      recordStreamRef.current.getTracks().forEach(track => track.stop())
+    }
+
+    console.log('🛑 About to check media recorder')
+    // Stop media recorder (simplifié pour éviter les blocages)
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      console.log('🛑 Stopping media recorder')
+      try {
+        // Forcer la récupération des dernières données
+        if (mediaRecorderRef.current.state === 'recording') {
+          mediaRecorderRef.current.requestData()
+        }
+
+        // Arrêter le recorder
+        mediaRecorderRef.current.stop()
+
+        // Petit délai pour laisser ondataavailable se déclencher
+        await new Promise(resolve => setTimeout(resolve, 500))
+
+        console.log('🛑 Media recorder stopped')
+      } catch (error) {
+        console.error('⚠️ Error stopping media recorder:', error)
+      }
+
+      // Envoyer les derniers chunks qui n'ont pas encore été envoyés
+      if (audioChunksRef.current.length > 0) {
+        console.log(`🛑 Saving final audio (${audioChunksRef.current.length} chunks)`)
+        const allChunks = [...audioChunksRef.current]
+        // Récupérer le type mime et extension du recorder
+        const recorderMimeType = mediaRecorderRef.current.mimeType || 'audio/webm'
+        const recorderExtension = recorderMimeType.includes('mp4') ? 'mp4' :
+                                 recorderMimeType.includes('ogg') ? 'ogg' : 'webm'
+        const blob = new Blob(allChunks, { type: recorderMimeType })
+        const formData = new FormData()
+        formData.append('audio', blob, `meeting-${meetingId}-final.${recorderExtension}`)
+        formData.append('meetingId', meetingId)
+        formData.append('isPartial', 'false')
+
+        try {
+          const response = await fetch('/api/meeting/save-audio', {
+            method: 'POST',
+            body: formData,
+          })
+          const data = await response.json()
+          console.log(`✅ Final audio saved: ${data.audioPath} (${blob.size} bytes)`)
+        } catch (error) {
+          console.error('❌ Error sending final audio chunk:', error)
+        }
+      } else {
+        console.log('⚠️ No audio chunks to save at meeting end')
+      }
+    } else {
+      console.log('⚠️ Media recorder already inactive or not initialized')
+    }
+
+    console.log('🛑 About to call /api/summary')
     try {
-      // Generate summary
+      // Generate summary (or try to)
       const response = await fetch('/api/summary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -235,16 +478,15 @@ export default function MeetingPage() {
       })
 
       const data = await response.json()
-      if (data.success) {
-        router.push(`/summary/${meetingId}`)
-      } else {
-        alert('Erreur lors de la génération du résumé')
-        setIsEnding(false)
-      }
+
+      // Rediriger vers summary même si pas de résumé généré
+      // (la page summary affichera un message approprié)
+      router.push(`/summary/${meetingId}`)
+
     } catch (error) {
       console.error('Error ending meeting:', error)
-      alert('Erreur lors de la génération du résumé')
-      setIsEnding(false)
+      // Rediriger quand même vers la page summary
+      router.push(`/summary/${meetingId}`)
     }
   }
 

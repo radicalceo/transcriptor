@@ -26,6 +26,7 @@ export async function GET(
         id: meeting.id,
         status: meeting.status,
         title: meeting.title,
+        audioPath: meeting.audioPath,
         transcript: JSON.parse(meeting.transcript),
         transcriptSegments: JSON.parse(meeting.transcriptSegments),
         suggestions: {
