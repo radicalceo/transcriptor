@@ -1,4 +1,5 @@
 See also documentation in [docs](/doc/).
+Avant tout développement, assures toi de bien respecter les guidelines techniques.
 
 Architecture générale
 

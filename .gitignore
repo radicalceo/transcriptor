@@ -39,3 +39,5 @@ next-env.d.ts
 
 # uploads and data
 /data
+
+.idea/*
