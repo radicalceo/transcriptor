@@ -3,27 +3,46 @@ import { prisma } from '@/lib/prisma'
 import fs from 'fs/promises'
 import path from 'path'
 import ffmpeg from 'fluent-ffmpeg'
-import ffmpegStatic from 'ffmpeg-static'
-import ffprobeStatic from 'ffprobe-static'
 
-// Configure ffmpeg paths
-if (ffmpegStatic) {
-  ffmpeg.setFfmpegPath(ffmpegStatic)
-}
-if (ffprobeStatic.path) {
-  ffmpeg.setFfprobePath(ffprobeStatic.path)
+// Fonction pour obtenir les chemins ffmpeg (appelée dynamiquement pour éviter les problèmes avec Turbopack)
+function getFfmpegPaths() {
+  const cwd = process.cwd()
+  const ffmpegPath = path.join(cwd, 'node_modules', 'ffmpeg-static', 'ffmpeg')
+  const ffprobePath = path.join(
+    cwd,
+    'node_modules',
+    'ffprobe-static',
+    'bin',
+    process.platform === 'darwin' ? 'darwin' : 'linux',
+    process.arch,
+    'ffprobe'
+  )
+
+  console.log('🎬 Dynamic ffmpeg path:', ffmpegPath)
+  console.log('🔍 Dynamic ffprobe path:', ffprobePath)
+
+  return { ffmpegPath, ffprobePath }
 }
 
 async function convertToMP3(inputPath: string, outputPath: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    ffmpeg(inputPath)
+    // Obtenir les chemins dynamiquement
+    const { ffmpegPath, ffprobePath } = getFfmpegPaths()
+
+    // Configurer la commande avec les bons chemins
+    const command = ffmpeg(inputPath)
+    command.setFfmpegPath(ffmpegPath)
+    command.setFfprobePath(ffprobePath)
+
+    command
       .audioCodec('libmp3lame')
       .audioBitrate('96k')
       .audioChannels(1) // Mono pour économiser de l'espace (suffisant pour la voix)
       .audioFrequency(44100)
       .format('mp3')
       .on('start', (cmd) => {
-        console.log('🎬 Starting conversion:', cmd)
+        console.log('🎬 Starting conversion with ffmpeg:', ffmpegPath)
+        console.log('📝 Command:', cmd)
       })
       .on('end', () => {
         console.log('✅ Conversion to MP3 completed')

@@ -26,6 +26,8 @@ export default function MeetingPage() {
   const [isEnding, setIsEnding] = useState(false)
   const [isUploadedFile, setIsUploadedFile] = useState(false)
   const [showDetailedSegments, setShowDetailedSegments] = useState(false)
+  const [showAudioModeSelector, setShowAudioModeSelector] = useState(false)
+  const [audioMode, setAudioMode] = useState<'microphone' | 'tab-and-mic' | null>(null)
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const recognitionRef = useRef<any>(null)
@@ -37,6 +39,8 @@ export default function MeetingPage() {
   const isRecordingRef = useRef<boolean>(false)
   const speechStreamRef = useRef<MediaStream | null>(null)
   const recordStreamRef = useRef<MediaStream | null>(null)
+  const tabStreamRef = useRef<MediaStream | null>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
   const lastSpeechRestartRef = useRef<number>(0)
 
   // Load meeting data
@@ -53,6 +57,9 @@ export default function MeetingPage() {
           // Détecter si c'est un fichier uploadé (status initial = processing)
           if (data.meeting.status === 'processing') {
             setIsUploadedFile(true)
+          } else if (data.meeting.status === 'active') {
+            // Afficher le sélecteur de mode audio pour les nouvelles sessions
+            setShowAudioModeSelector(true)
           }
         }
       } catch (error) {
@@ -95,11 +102,15 @@ export default function MeetingPage() {
     if (isRecordingRef.current) return // Éviter de démarrer plusieurs fois
     if (!meeting) return
     if (meeting.status === 'processing' || meeting.status === 'completed') return // Skip mic for uploads and completed meetings
+    if (!audioMode) return // Attendre que l'utilisateur choisisse un mode
 
     const startRecording = async () => {
       try {
-        // Request microphone permission - UN SEUL stream
-        const stream = await navigator.mediaDevices.getUserMedia({
+        let micStream: MediaStream
+        let combinedStream: MediaStream
+
+        // Obtenir le flux du microphone
+        micStream = await navigator.mediaDevices.getUserMedia({
           audio: {
             echoCancellation: true,
             noiseSuppression: true,
@@ -108,16 +119,75 @@ export default function MeetingPage() {
         })
 
         console.log('🎙️ Microphone stream obtained')
-        console.log(`📊 Audio tracks: ${stream.getAudioTracks().length}`)
-        stream.getAudioTracks().forEach((track, index) => {
+
+        if (audioMode === 'tab-and-mic') {
+          // Mode visio: capturer aussi l'audio de l'onglet
+          try {
+            const tabStream = await navigator.mediaDevices.getDisplayMedia({
+              video: true, // Obligatoire pour la plupart des navigateurs
+              audio: true, // Simplifier les contraintes
+            })
+
+            console.log('🖥️ Tab stream obtained')
+            console.log(`📊 Video tracks: ${tabStream.getVideoTracks().length}`)
+            console.log(`📊 Audio tracks: ${tabStream.getAudioTracks().length}`)
+
+            // Arrêter la piste vidéo immédiatement (on ne veut que l'audio)
+            tabStream.getVideoTracks().forEach(track => {
+              track.stop()
+              console.log('🛑 Video track stopped (not needed)')
+            })
+
+            tabStreamRef.current = tabStream
+
+            // Vérifier qu'on a bien de l'audio
+            if (tabStream.getAudioTracks().length === 0) {
+              throw new Error('Aucune piste audio dans le partage. Assurez-vous de cocher "Partager l\'audio".')
+            }
+
+            // Mixer les deux flux avec Web Audio API
+            const audioContext = new AudioContext()
+            audioContextRef.current = audioContext
+
+            const destination = audioContext.createMediaStreamDestination()
+
+            // Connecter le micro
+            const micSource = audioContext.createMediaStreamSource(micStream)
+            micSource.connect(destination)
+
+            // Connecter l'audio de l'onglet
+            const tabSource = audioContext.createMediaStreamSource(tabStream)
+            tabSource.connect(destination)
+
+            combinedStream = destination.stream
+            console.log('🎵 Audio streams mixed successfully')
+
+            // Détecter si l'utilisateur arrête le partage d'écran
+            tabStream.getAudioTracks()[0].onended = () => {
+              console.log('⚠️ Tab sharing stopped by user')
+              alert('Le partage audio de l\'onglet a été arrêté. Seul le microphone sera enregistré.')
+            }
+          } catch (error: any) {
+            console.error('Error capturing tab audio:', error)
+            const errorMsg = error.message || 'Erreur inconnue'
+            alert(`Impossible de capturer l'audio de l'onglet: ${errorMsg}\n\nSeul le microphone sera utilisé.`)
+            combinedStream = micStream
+          }
+        } else {
+          // Mode micro seul
+          combinedStream = micStream
+        }
+
+        console.log(`📊 Audio tracks: ${combinedStream.getAudioTracks().length}`)
+        combinedStream.getAudioTracks().forEach((track, index) => {
           console.log(`   Track ${index}: ${track.label}, enabled: ${track.enabled}, muted: ${track.muted}`)
         })
 
         // Stocker le stream principal
-        speechStreamRef.current = stream
+        speechStreamRef.current = micStream
 
-        // Cloner le stream pour MediaRecorder (pour éviter les conflits)
-        const recordStream = stream.clone()
+        // Cloner le stream combiné pour MediaRecorder (pour éviter les conflits)
+        const recordStream = combinedStream.clone()
         console.log('🎙️ Recording stream cloned')
         recordStreamRef.current = recordStream
 
@@ -326,8 +396,16 @@ export default function MeetingPage() {
         recordStreamRef.current.getTracks().forEach(track => track.stop())
         recordStreamRef.current = null
       }
+      if (tabStreamRef.current) {
+        tabStreamRef.current.getTracks().forEach(track => track.stop())
+        tabStreamRef.current = null
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close()
+        audioContextRef.current = null
+      }
     }
-  }, [meetingId, meeting?.id, meeting?.status])
+  }, [meetingId, meeting?.id, meeting?.status, audioMode])
 
   // Poll for suggestions every 5 seconds
   useEffect(() => {
@@ -415,6 +493,14 @@ export default function MeetingPage() {
       console.log('🛑 Stopping record stream')
       recordStreamRef.current.getTracks().forEach(track => track.stop())
     }
+    if (tabStreamRef.current) {
+      console.log('🛑 Stopping tab stream')
+      tabStreamRef.current.getTracks().forEach(track => track.stop())
+    }
+    if (audioContextRef.current) {
+      console.log('🛑 Closing audio context')
+      audioContextRef.current.close()
+    }
 
     console.log('🛑 About to check media recorder')
     // Stop media recorder (simplifié pour éviter les blocages)
@@ -501,6 +587,102 @@ export default function MeetingPage() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Chargement...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Audio mode selector modal
+  if (showAudioModeSelector) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full p-8">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+            Choisissez votre mode d&apos;enregistrement
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-8">
+            Sélectionnez comment vous souhaitez enregistrer l&apos;audio de votre réunion.
+          </p>
+
+          <div className="space-y-4">
+            {/* Mode microphone seul */}
+            <button
+              onClick={() => {
+                setAudioMode('microphone')
+                setShowAudioModeSelector(false)
+              }}
+              className="w-full text-left p-6 border-2 border-gray-200 dark:border-gray-700 rounded-xl hover:border-indigo-500 dark:hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all group"
+            >
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg flex items-center justify-center group-hover:bg-indigo-200 dark:group-hover:bg-indigo-900/50 transition-colors">
+                  <svg
+                    className="w-6 h-6 text-indigo-600 dark:text-indigo-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                    />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                    Microphone uniquement
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400 text-sm">
+                    Enregistrez uniquement votre voix via le microphone. Idéal pour les réunions en
+                    présentiel ou les notes vocales personnelles.
+                  </p>
+                </div>
+              </div>
+            </button>
+
+            {/* Mode capture d'onglet + micro */}
+            <button
+              onClick={() => {
+                setAudioMode('tab-and-mic')
+                setShowAudioModeSelector(false)
+              }}
+              className="w-full text-left p-6 border-2 border-gray-200 dark:border-gray-700 rounded-xl hover:border-green-500 dark:hover:border-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all group"
+            >
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center group-hover:bg-green-200 dark:group-hover:bg-green-900/50 transition-colors">
+                  <svg
+                    className="w-6 h-6 text-green-600 dark:text-green-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                    />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                    Microphone + Audio de l&apos;onglet
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400 text-sm mb-3">
+                    Capturez à la fois votre voix ET l&apos;audio de votre visioconférence (Zoom, Meet, Teams...).
+                    Vous devrez sélectionner l&apos;onglet de la visio et activer le partage audio.
+                  </p>
+                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                    <p className="text-amber-800 dark:text-amber-200 text-xs">
+                      <strong>Recommandé pour les visios</strong> - Après avoir cliqué, sélectionnez l&apos;onglet
+                      de votre visioconférence et cochez &quot;Partager l&apos;audio&quot;.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </button>
+          </div>
         </div>
       </div>
     )
