@@ -1,0 +1,254 @@
+
+> meeting-copilot@0.1.0 test:e2e
+> playwright test
+
+
+Running 42 tests using 5 workers
+
+  ✓   5 [chromium] › e2e/meeting.spec.ts:11:7 › Page Meeting › affiche le sélecteur de mode audio pour un nouveau meeting (1.2s)
+  ✓   2 [chromium] › e2e/upload.spec.ts:10:7 › Page Upload › affiche correctement la page upload (1.2s)
+  ✓   4 [chromium] › e2e/homepage.spec.ts:5:7 › Page d'accueil › affiche le titre et les boutons principaux (1.2s)
+  ✓   1 [chromium] › e2e/history.spec.ts:39:7 › Page Historique › affiche le titre de la page (1.6s)
+  ✓   3 [chromium] › e2e/summary.spec.ts:33:7 › Page Summary › affiche le titre du meeting (1.6s)
+  ✓   7 [chromium] › e2e/upload.spec.ts:33:7 › Page Upload › le bouton retour redirige vers la page d'accueil (530ms)
+  ✓   6 [chromium] › e2e/meeting.spec.ts:25:7 › Page Meeting › permet de sélectionner le mode microphone uniquement (563ms)
+  ✓  11 [chromium] › e2e/upload.spec.ts:40:7 › Page Upload › permet de sélectionner un fichier via l'input (358ms)
+  ✓  12 [chromium] › e2e/meeting.spec.ts:40:7 › Page Meeting › affiche la transcription en cours (429ms)
+  ✓  13 [chromium] › e2e/upload.spec.ts:58:7 › Page Upload › valide le format du fichier (245ms)
+  ✓   9 [chromium] › e2e/history.spec.ts:47:7 › Page Historique › affiche la liste des meetings passés (840ms)
+  ✓  10 [chromium] › e2e/summary.spec.ts:43:7 › Page Summary › affiche la synthèse (864ms)
+  ✓  15 [chromium] › e2e/upload.spec.ts:75:7 › Page Upload › permet de changer de fichier après sélection (306ms)
+  ✓  18 [chromium] › e2e/upload.spec.ts:95:7 › Page Upload › upload un fichier et redirige vers la page meeting (356ms)
+  ✘  16 [chromium] › e2e/history.spec.ts:56:7 › Page Historique › affiche les informations de chaque meeting (787ms)
+  ✓  19 [chromium] › e2e/upload.spec.ts:122:7 › Page Upload › affiche les informations sur le processus (226ms)
+  ✓  17 [chromium] › e2e/summary.spec.ts:54:7 › Page Summary › affiche les thèmes abordés (778ms)
+  ✓  20 [chromium] › e2e/upload.spec.ts:133:7 › Page Upload › affiche un message d'erreur si l'upload échoue (394ms)
+  ✓  21 [chromium] › e2e/summary.spec.ts:63:7 › Page Summary › affiche les décisions prises (745ms)
+  ✓  22 [chromium] › e2e/history.spec.ts:70:7 › Page Historique › affiche le bouton Nouveau meeting (745ms)
+  ✓  23 [chromium] › e2e/summary.spec.ts:71:7 › Page Summary › affiche les actions à faire (745ms)
+  ✓  24 [chromium] › e2e/history.spec.ts:78:7 › Page Historique › affiche le bouton Retour à l'accueil (725ms)
+  ✓  25 [chromium] › e2e/summary.spec.ts:80:7 › Page Summary › permet de retourner à l'accueil (847ms)
+  ✓  26 [chromium] › e2e/history.spec.ts:86:7 › Page Historique › affiche un message si aucun meeting n'existe (712ms)
+  ✘  27 [chromium] › e2e/summary.spec.ts:91:7 › Page Summary › affiche un bouton pour modifier le résumé (750ms)
+  ✓  28 [chromium] › e2e/history.spec.ts:106:7 › Page Historique › permet de naviguer vers un meeting (714ms)
+  ✘   8 [chromium] › e2e/homepage.spec.ts:30:7 › Page d'accueil › le bouton "Démarrer un meeting" redirige vers la page meeting (5.4s)
+  ✓  29 [chromium] › e2e/history.spec.ts:121:7 › Page Historique › affiche le type de meeting (Live ou Upload) (713ms)
+  ✓  31 [chromium] › e2e/homepage.spec.ts:47:7 › Page d'accueil › le bouton "Uploader un enregistrement" redirige vers la page upload (299ms)
+  ✓  30 [chromium] › e2e/summary.spec.ts:99:7 › Page Summary › affiche un bouton pour copier le résumé (763ms)
+  ✘  14 [chromium] › e2e/meeting.spec.ts:83:7 › Page Meeting › affiche le panel de suggestions (5.3s)
+  ✓  33 [chromium] › e2e/homepage.spec.ts:61:7 › Page d'accueil › le bouton "Historique" redirige vers la page historique (265ms)
+  ✓  35 [chromium] › e2e/homepage.spec.ts:74:7 › Page d'accueil › affiche correctement en mode sombre (253ms)
+  ✓  32 [chromium] › e2e/history.spec.ts:132:7 › Page Historique › affiche le nombre total d'enregistrements (732ms)
+  ✓  34 [chromium] › e2e/summary.spec.ts:107:7 › Page Summary › affiche un message si aucun résumé n'est disponible (781ms)
+  ✓  37 [chromium] › e2e/history.spec.ts:140:7 › Page Historique › permet de retourner à l'accueil via le bouton (854ms)
+  ✓  38 [chromium] › e2e/summary.spec.ts:132:7 › Page Summary › permet de naviguer vers la vue détaillée (830ms)
+  ✘  36 [chromium] › e2e/meeting.spec.ts:127:7 › Page Meeting › affiche le bouton terminer le meeting (5.3s)
+  ✘  39 [chromium] › e2e/meeting.spec.ts:163:7 › Page Meeting › peut terminer un meeting et être redirigé vers le résumé (5.3s)
+  ✓  40 [chromium] › e2e/meeting.spec.ts:211:7 › Page Meeting › affiche le statut de traitement pour un fichier uploadé (343ms)
+  ✓  41 [chromium] › e2e/meeting.spec.ts:242:7 › Page Meeting › affiche le bouton retour vers l'historique (391ms)
+  ✓  42 [chromium] › e2e/meeting.spec.ts:279:7 › Page Meeting › permet de basculer entre vue groupée et vue détaillée (356ms)
+
+
+  1) [chromium] › e2e/history.spec.ts:56:7 › Page Historique › affiche les informations de chaque meeting 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByText(/30:00|60:00/i)
+    Expected: visible
+    Error: strict mode violation: getByText(/30:00|60:00/i) resolved to 2 elements:
+        1) <span class="flex items-center gap-1">…</span> aka getByText('30:')
+        2) <span class="flex items-center gap-1">…</span> aka getByText('60:')
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByText(/30:00|60:00/i)[22m
+
+
+      62 |
+      63 |     // Vérifier que la durée est affichée (30:00 pour 1800s, 60:00 pour 3600s)
+    > 64 |     await expect(page.getByText(/30:00|60:00/i)).toBeVisible()
+         |                                                  ^
+      65 |
+      66 |     // Vérifier que le nombre de segments est affiché
+      67 |     await expect(page.getByText(/segments/i)).toBeVisible()
+        at /Users/floppy/Sites/radicalceo/transcriptor/e2e/history.spec.ts:64:50
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/history-Page-Historique-af-0ce13-ormations-de-chaque-meeting-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/history-Page-Historique-af-0ce13-ormations-de-chaque-meeting-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/history-Page-Historique-af-0ce13-ormations-de-chaque-meeting-chromium/error-context.md
+
+  2) [chromium] › e2e/homepage.spec.ts:30:7 › Page d'accueil › le bouton "Démarrer un meeting" redirige vers la page meeting 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByText(/Démarrage.../i)
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByText(/Démarrage.../i)[22m
+
+
+      36 |
+      37 |     // Vérifier que l'état de chargement s'affiche
+    > 38 |     await expect(page.getByText(/Démarrage.../i)).toBeVisible()
+         |                                                   ^
+      39 |
+      40 |     // Attendre la redirection vers la page meeting
+      41 |     await page.waitForURL(/\/meeting\/.+/, { timeout: 5000 })
+        at /Users/floppy/Sites/radicalceo/transcriptor/e2e/homepage.spec.ts:38:51
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/homepage-Page-d-accueil-le-93e83-dirige-vers-la-page-meeting-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/homepage-Page-d-accueil-le-93e83-dirige-vers-la-page-meeting-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/homepage-Page-d-accueil-le-93e83-dirige-vers-la-page-meeting-chromium/error-context.md
+
+  3) [chromium] › e2e/meeting.spec.ts:83:7 › Page Meeting › affiche le panel de suggestions ────────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByText('Lancer le projet le 1er novembre')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByText('Lancer le projet le 1er novembre')[22m
+
+
+      118 |
+      119 |     // Vérifier que les décisions apparaissent
+    > 120 |     await expect(page.getByText('Lancer le projet le 1er novembre')).toBeVisible()
+          |                                                                      ^
+      121 |
+      122 |     // Vérifier que les actions apparaissent
+      123 |     await expect(page.getByText('Préparer le deck')).toBeVisible()
+        at /Users/floppy/Sites/radicalceo/transcriptor/e2e/meeting.spec.ts:120:70
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/meeting-Page-Meeting-affiche-le-panel-de-suggestions-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/meeting-Page-Meeting-affiche-le-panel-de-suggestions-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/meeting-Page-Meeting-affiche-le-panel-de-suggestions-chromium/error-context.md
+
+  4) [chromium] › e2e/meeting.spec.ts:127:7 › Page Meeting › affiche le bouton terminer le meeting ─
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('button', { name: /Terminer le meeting/i })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByRole('button', { name: /Terminer le meeting/i })[22m
+
+
+      158 |
+      159 |     // Vérifier que le bouton "Terminer le meeting" est visible
+    > 160 |     await expect(page.getByRole('button', { name: /Terminer le meeting/i })).toBeVisible()
+          |                                                                              ^
+      161 |   })
+      162 |
+      163 |   test('peut terminer un meeting et être redirigé vers le résumé', async ({ page, context }) => {
+        at /Users/floppy/Sites/radicalceo/transcriptor/e2e/meeting.spec.ts:160:78
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/meeting-Page-Meeting-affiche-le-bouton-terminer-le-meeting-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/meeting-Page-Meeting-affiche-le-bouton-terminer-le-meeting-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/meeting-Page-Meeting-affiche-le-bouton-terminer-le-meeting-chromium/error-context.md
+
+  5) [chromium] › e2e/meeting.spec.ts:163:7 › Page Meeting › peut terminer un meeting et être redirigé vers le résumé 
+
+    TimeoutError: page.waitForSelector: Timeout 5000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('button:has-text("Terminer le meeting")') to be visible[22m
+
+
+      194 |
+      195 |     // Attendre que le bouton soit visible et cliquable
+    > 196 |     await page.waitForSelector('button:has-text("Terminer le meeting")', { state: 'visible', timeout: 5000 })
+          |                ^
+      197 |
+      198 |     // Cliquer sur "Terminer le meeting"
+      199 |     await page.getByRole('button', { name: /Terminer le meeting/i }).click()
+        at /Users/floppy/Sites/radicalceo/transcriptor/e2e/meeting.spec.ts:196:16
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/meeting-Page-Meeting-peut--6699e-tre-redirigé-vers-le-résumé-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/meeting-Page-Meeting-peut--6699e-tre-redirigé-vers-le-résumé-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/meeting-Page-Meeting-peut--6699e-tre-redirigé-vers-le-résumé-chromium/error-context.md
+
+  6) [chromium] › e2e/summary.spec.ts:91:7 › Page Summary › affiche un bouton pour modifier le résumé 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: getByRole('button', { name: /Modifier/i })
+    Expected: visible
+    Error: strict mode violation: getByRole('button', { name: /Modifier/i }) resolved to 2 elements:
+        1) <button class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">…</button> aka getByRole('button', { name: 'Modifier', exact: true })
+        2) <button title="Modifier le titre" class="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-gray-600 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400">…</button> aka getByRole('button', { name: 'Modifier le titre' })
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 5000ms[22m
+    [2m  - waiting for getByRole('button', { name: /Modifier/i })[22m
+
+
+      94 |
+      95 |     // Vérifier que le bouton Modifier est visible
+    > 96 |     await expect(page.getByRole('button', { name: /Modifier/i })).toBeVisible()
+         |                                                                   ^
+      97 |   })
+      98 |
+      99 |   test('affiche un bouton pour copier le résumé', async ({ page }) => {
+        at /Users/floppy/Sites/radicalceo/transcriptor/e2e/summary.spec.ts:96:67
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/summary-Page-Summary-affic-52683-ton-pour-modifier-le-résumé-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/summary-Page-Summary-affic-52683-ton-pour-modifier-le-résumé-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/summary-Page-Summary-affic-52683-ton-pour-modifier-le-résumé-chromium/error-context.md
+
+  6 failed
+    [chromium] › e2e/history.spec.ts:56:7 › Page Historique › affiche les informations de chaque meeting 
+    [chromium] › e2e/homepage.spec.ts:30:7 › Page d'accueil › le bouton "Démarrer un meeting" redirige vers la page meeting 
+    [chromium] › e2e/meeting.spec.ts:83:7 › Page Meeting › affiche le panel de suggestions ─────────
+    [chromium] › e2e/meeting.spec.ts:127:7 › Page Meeting › affiche le bouton terminer le meeting ──
+    [chromium] › e2e/meeting.spec.ts:163:7 › Page Meeting › peut terminer un meeting et être redirigé vers le résumé 
+    [chromium] › e2e/summary.spec.ts:91:7 › Page Summary › affiche un bouton pour modifier le résumé 
+  36 passed (21.3s)
+
+[36m  Serving HTML report at http://localhost:9323. Press Ctrl+C to quit.[39m
