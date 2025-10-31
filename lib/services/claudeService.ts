@@ -48,7 +48,7 @@ Réponds EXCLUSIVEMENT avec un JSON valide selon ce schéma:
 }`
 
     const message = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
+      model: 'claude-3-haiku-20240307',
       max_tokens: 1024,
       temperature: 0.2,
       system: LIVE_SYSTEM_PROMPT,
@@ -146,8 +146,8 @@ Réponds EXCLUSIVEMENT avec un JSON valide selon ce schéma:
 }`
 
     const message = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 8192,
+      model: 'claude-3-opus-20240229',
+      max_tokens: 4096,
       temperature: 0.3,
       system: FINAL_SYSTEM_PROMPT,
       messages: [

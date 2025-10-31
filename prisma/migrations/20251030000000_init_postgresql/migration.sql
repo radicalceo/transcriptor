@@ -1,6 +1,6 @@
 -- CreateTable
 CREATE TABLE "Meeting" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "title" TEXT,
     "status" TEXT NOT NULL DEFAULT 'active',
     "audioPath" TEXT,
@@ -11,8 +11,10 @@ CREATE TABLE "Meeting" (
     "decisions" TEXT NOT NULL DEFAULT '[]',
     "actions" TEXT NOT NULL DEFAULT '[]',
     "summary" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Meeting_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex

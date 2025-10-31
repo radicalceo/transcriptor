@@ -51,3 +51,5 @@ next-env.d.ts
 /e2e/fixtures/*.wav
 /e2e/fixtures/*.webm
 /e2e/fixtures/test-*
+
+**/.claude/settings.local.json

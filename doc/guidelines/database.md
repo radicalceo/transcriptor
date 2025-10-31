@@ -1,27 +1,32 @@
 # Guide Base de Données et Prisma
 
-> **Objectif**: Standardiser l'utilisation de Prisma et SQLite pour garantir performance, cohérence et maintenabilité.
+> **Objectif**: Standardiser l'utilisation de Prisma et PostgreSQL pour garantir performance, cohérence et maintenabilité.
 
 ---
 
 ## 🗄️ Architecture Base de Données
 
-### SQLite avec Prisma ORM
+### PostgreSQL avec Prisma ORM
 
-**Pourquoi SQLite?**
-- ✅ Pas de serveur DB nécessaire
-- ✅ Fichier unique facile à backup
-- ✅ Performance excellente pour MVP
-- ✅ Facilite le développement local
+**Pourquoi PostgreSQL?**
+- ✅ Production-ready et scalable
+- ✅ Compatible avec Vercel (serverless)
+- ✅ Support JSON natif
+- ✅ Transactions ACID complètes
+- ✅ Connection pooling intégré
 
-**Migration future vers PostgreSQL:**
+**Configuration actuelle:**
 ```typescript
-// Configuration ready pour migration
 datasource db {
-  provider = "sqlite"          // Changer en "postgresql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 ```
+
+**Pour le déploiement Vercel:**
+- Voir [VERCEL_DEPLOYMENT.md](/VERCEL_DEPLOYMENT.md) pour le guide complet
+- Utiliser Vercel Postgres (powered by Neon)
+- Connection string automatiquement configurée via `POSTGRES_PRISMA_URL`
 
 ---
 
@@ -37,7 +42,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -45,7 +50,6 @@ model Meeting {
   id                  String   @id @default(uuid())
   title               String?
   status              String   @default("active")  // active|processing|completed
-  type                String   @default("live")    // live|upload
   audioPath           String?
   duration            Int?     // Seconds
 
@@ -68,21 +72,25 @@ model Meeting {
   // Indexes for performance
   @@index([status])
   @@index([createdAt])
-  @@index([type])
 }
 ```
 
 ### Pourquoi JSON en String?
 
+**Note**: PostgreSQL supporte le type JSON natif, mais nous utilisons String pour:
+
 **Avantages:**
 - ✅ Flexibilité du schéma (pas de migration pour chaque champ)
-- ✅ SQLite ne supporte pas JSON natif comme PostgreSQL
+- ✅ Compatibilité avec migration depuis SQLite
 - ✅ Facilite évolution des structures (Suggestions, Summary)
+- ✅ Simplicité du code (pas de mappage complexe)
 
 **Inconvénients:**
-- ❌ Pas de validation DB
-- ❌ Requêtes complexes difficiles
+- ❌ Pas de validation DB native
+- ❌ Requêtes JSON complexes non optimisées
 - ⚠️ Validation TypeScript + runtime requise
+
+**Alternative future**: Migrer vers colonnes JSON natives PostgreSQL si nécessaire
 
 ---
 
@@ -501,16 +509,20 @@ try {
 ### 3. Connection Pooling
 
 ```typescript
-// ✅ Configuration pool (pour PostgreSQL)
+// ✅ Configuration automatique avec Vercel Postgres
+// Utiliser POSTGRES_PRISMA_URL au lieu de POSTGRES_URL
+// Vercel configure automatiquement le pooling avec PgBouncer
+
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
-
-  // Connection pool settings
-  connection_limit = 10
-  pool_timeout = 10
+  url      = env("DATABASE_URL")  // Points to POSTGRES_PRISMA_URL on Vercel
 }
 ```
+
+**Vercel Postgres:**
+- Connection pooling via PgBouncer (automatique)
+- `POSTGRES_PRISMA_URL` - Optimisé pour Prisma avec pooling
+- `POSTGRES_URL_NON_POOLING` - Connexion directe (migrations uniquement)
 
 ---
 
@@ -560,9 +572,11 @@ prisma.$on('query', (e) => {
 - [ ] Transactions pour opérations atomiques
 - [ ] Error handling pour erreurs Prisma
 - [ ] Cleanup des ressources (audio, etc.)
-- [ ] Migrations versionnées
+- [ ] Migrations versionnées et appliquées
 - [ ] Logging des requêtes lentes
-- [ ] Backup régulier de la DB SQLite
+- [ ] Connection pooling configuré (Vercel: `POSTGRES_PRISMA_URL`)
+- [ ] Variables d'environnement configurées sur Vercel
+- [ ] Migrations déployées en production
 
 ---
 
@@ -625,5 +639,7 @@ await prisma.$transaction([
 
 - [Prisma Documentation](https://www.prisma.io/docs)
 - [Prisma Best Practices](https://www.prisma.io/docs/guides/performance-and-optimization)
-- [SQLite Documentation](https://www.sqlite.org/docs.html)
+- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
 - [Prisma Migrate](https://www.prisma.io/docs/concepts/components/prisma-migrate)
+- [Vercel Postgres](https://vercel.com/docs/storage/vercel-postgres)
+- [VERCEL_DEPLOYMENT.md](/VERCEL_DEPLOYMENT.md) - Guide de déploiement complet
