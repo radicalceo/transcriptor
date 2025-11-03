@@ -27,6 +27,9 @@ model Meeting {
   // Summary (JSON stored as text)
   summary           String?  // JSON object or null
 
+  // Notes taken during the meeting
+  notes             String?  // HTML notes
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

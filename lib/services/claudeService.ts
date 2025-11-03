@@ -90,7 +90,8 @@ Réponds EXCLUSIVEMENT avec un JSON valide selon ce schéma:
 
 export async function generateFinalSummary(
   transcript: string[],
-  validatedSuggestions?: Suggestions
+  validatedSuggestions?: Suggestions,
+  userNotes?: string
 ): Promise<Summary> {
   try {
     const fullTranscript = transcript.join('\n')
@@ -103,6 +104,20 @@ ${fullTranscript}`
 
 LISTES_VALIDÉES_PAR_UTILISATEUR:
 ${JSON.stringify(validatedSuggestions, null, 2)}`
+    }
+
+    if (userNotes && userNotes.trim().length > 0) {
+      // Strip HTML tags for better analysis
+      const notesText = userNotes.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+      userPrompt += `
+
+NOTES_PRISES_PAR_L_UTILISATEUR:
+${notesText}
+
+IMPORTANT: L'utilisateur a pris ces notes pendant la réunion. Tu dois:
+1. Utiliser ces notes pour enrichir ton analyse et ton résumé
+2. Intégrer les points clés des notes dans le résumé final
+3. Générer une version améliorée et structurée de ces notes dans "enhancedNotes"`
     }
 
     userPrompt += `
@@ -142,7 +157,8 @@ Réponds EXCLUSIVEMENT avec un JSON valide selon ce schéma:
     "decisions_detailed": "string (analyse détaillée de 10-15 lignes)",
     "open_questions_detailed": "string (analyse détaillée de 10-15 lignes)",
     "topics_detailed": [{"title":"string","detailed_summary":"string (analyse très détaillée de 15-20 lignes minimum avec bullet points et contexte approfondi)"}]
-  }
+  },
+  "enhancedNotes": "string|null (version améliorée, structurée et enrichie des notes utilisateur en HTML, null si pas de notes)"
 }`
 
     const message = await anthropic.messages.create({
@@ -177,6 +193,8 @@ Réponds EXCLUSIVEMENT avec un JSON valide selon ce schéma:
       open_questions: parsed.open_questions || [],
       topics: parsed.topics || [],
       detailed: parsed.detailed || undefined,
+      rawNotes: userNotes || undefined,
+      enhancedNotes: parsed.enhancedNotes || undefined,
       // Keep deprecated fields for backward compatibility
       highlights: parsed.highlights || [],
       risks: parsed.risks || [],

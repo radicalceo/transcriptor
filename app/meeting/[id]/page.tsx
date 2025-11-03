@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation'
 import { useState, useEffect, useRef, useMemo } from 'react'
-import SuggestionsPanel from '@/components/SuggestionsPanel'
+import RichTextEditor from '@/components/RichTextEditor'
 import type { Meeting, Suggestions } from '@/lib/types'
 import {
   groupTranscriptSegments,
@@ -18,11 +18,7 @@ export default function MeetingPage() {
   const [meeting, setMeeting] = useState<Meeting | null>(null)
   const [isRecording, setIsRecording] = useState(false)
   const [transcript, setTranscript] = useState<string[]>([])
-  const [suggestions, setSuggestions] = useState<Suggestions>({
-    topics: [],
-    decisions: [],
-    actions: [],
-  })
+  const [notes, setNotes] = useState<string>('')
   const [isEnding, setIsEnding] = useState(false)
   const [isUploadedFile, setIsUploadedFile] = useState(false)
   const [showDetailedSegments, setShowDetailedSegments] = useState(false)
@@ -31,9 +27,10 @@ export default function MeetingPage() {
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const recognitionRef = useRef<any>(null)
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const audioSaveIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const notesSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const transcriptRef = useRef<HTMLDivElement>(null)
+  const lastNotesUpdateRef = useRef<number>(0)
   const audioChunksRef = useRef<Blob[]>([])
   const pendingChunksRef = useRef<Blob[]>([])
   const isRecordingRef = useRef<boolean>(false)
@@ -52,7 +49,7 @@ export default function MeetingPage() {
         if (data.success) {
           setMeeting(data.meeting)
           setTranscript(data.meeting.transcript)
-          setSuggestions(data.meeting.suggestions)
+          setNotes(data.meeting.notes || '')
 
           // Détecter si c'est un fichier uploadé (status initial = processing)
           if (data.meeting.status === 'processing') {
@@ -77,7 +74,12 @@ export default function MeetingPage() {
           const prevStatus = meeting?.status
           setMeeting(data.meeting)
           setTranscript(data.meeting.transcript)
-          setSuggestions(data.meeting.suggestions)
+
+          // Ne mettre à jour les notes que si l'utilisateur n'a pas édité récemment (5 secondes)
+          const timeSinceLastUpdate = Date.now() - lastNotesUpdateRef.current
+          if (timeSinceLastUpdate > 5000) {
+            setNotes(data.meeting.notes || '')
+          }
 
           // Si c'était un upload et que le statut passe à 'completed', rediriger vers le résumé
           if (
@@ -407,35 +409,31 @@ export default function MeetingPage() {
     }
   }, [meetingId, meeting?.id, meeting?.status, audioMode])
 
-  // Poll for suggestions every 5 seconds
+
+  // Save notes before page unload
   useEffect(() => {
-    if (!isRecording || !meetingId) return
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Cancel any pending debounced save
+      if (notesSaveTimeoutRef.current) {
+        clearTimeout(notesSaveTimeoutRef.current)
+      }
 
-    const pollSuggestions = async () => {
-      try {
-        const response = await fetch('/api/suggestions', {
-          method: 'POST',
+      // Save immediately using fetch with keepalive (works even if page is closing)
+      if (notes) {
+        fetch(`/api/meeting/${meetingId}`, {
+          method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ meetingId }),
+          body: JSON.stringify({ notes }),
+          keepalive: true, // Allows request to complete even if page is unloading
+        }).catch(error => {
+          console.error('Error saving notes on unload:', error)
         })
-
-        const data = await response.json()
-        if (data.success) {
-          setSuggestions(data.suggestions)
-        }
-      } catch (error) {
-        console.error('Error polling suggestions:', error)
       }
     }
 
-    pollIntervalRef.current = setInterval(pollSuggestions, 5000)
-
-    return () => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current)
-      }
-    }
-  }, [isRecording, meetingId])
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [meetingId, notes])
 
   // Group transcript segments for better display
   const transcriptBlocks = useMemo(() => {
@@ -474,10 +472,6 @@ export default function MeetingPage() {
     if (recognitionRef.current) {
       console.log('🛑 Stopping recognition')
       recognitionRef.current.stop()
-    }
-    if (pollIntervalRef.current) {
-      console.log('🛑 Clearing poll interval')
-      clearInterval(pollIntervalRef.current)
     }
     if (audioSaveIntervalRef.current) {
       console.log('🛑 Clearing audio save interval')
@@ -576,9 +570,30 @@ export default function MeetingPage() {
     }
   }
 
-  const handleUpdateSuggestions = (updated: Suggestions) => {
-    setSuggestions(updated)
-    // Could save to API here
+  const saveNotes = async (notesContent: string) => {
+    try {
+      await fetch(`/api/meeting/${meetingId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: notesContent }),
+      })
+    } catch (error) {
+      console.error('Error saving notes:', error)
+    }
+  }
+
+  const handleNotesChange = async (html: string) => {
+    setNotes(html)
+    lastNotesUpdateRef.current = Date.now()
+
+    // Debounce: save notes after 2 seconds of inactivity
+    if (notesSaveTimeoutRef.current) {
+      clearTimeout(notesSaveTimeoutRef.current)
+    }
+
+    notesSaveTimeoutRef.current = setTimeout(() => {
+      saveNotes(html)
+    }, 2000)
   }
 
   if (!meeting) {
@@ -790,8 +805,8 @@ export default function MeetingPage() {
 
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Transcript panel */}
-        <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900">
+        {/* Transcript panel - 50% */}
+        <div className="w-1/2 flex flex-col bg-gray-50 dark:bg-gray-900">
           <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Transcription en direct
@@ -913,12 +928,19 @@ export default function MeetingPage() {
           </div>
         </div>
 
-        {/* Suggestions panel */}
-        <div className="w-96">
-          <SuggestionsPanel
-            suggestions={suggestions}
-            onUpdate={handleUpdateSuggestions}
-          />
+        {/* Notes panel - 50% */}
+        <div className="w-1/2 flex flex-col bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700">
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Notes
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Prenez des notes pendant la réunion
+            </p>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            <RichTextEditor value={notes} onChange={handleNotesChange} />
+          </div>
         </div>
       </div>
     </div>

@@ -41,6 +41,7 @@ export async function POST(request: Request) {
           decisions: JSON.parse(dbMeeting.decisions),
           actions: JSON.parse(dbMeeting.actions),
         },
+        notes: dbMeeting.notes,
         createdAt: dbMeeting.createdAt.toISOString(),
         updatedAt: dbMeeting.updatedAt.toISOString(),
         status: dbMeeting.status,
@@ -71,10 +72,11 @@ export async function POST(request: Request) {
       meetingStore.updateStatus(meetingId, 'processing')
     }
 
-    // Generate final summary
+    // Generate final summary (include notes if available)
     const summary = await generateFinalSummary(
       meeting.transcript,
-      meeting.suggestions
+      meeting.suggestions,
+      meeting.notes || undefined
     )
 
     // Save summary to database

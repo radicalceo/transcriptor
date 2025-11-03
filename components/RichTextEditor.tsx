@@ -10,20 +10,56 @@ interface RichTextEditorProps {
 export default function RichTextEditor({ value, onChange }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null)
   const isUpdatingRef = useRef(false)
+  const lastValueRef = useRef<string>('')
+  const isInitializedRef = useRef(false)
 
   useEffect(() => {
     if (editorRef.current && !isUpdatingRef.current) {
-      editorRef.current.innerHTML = value
+      const currentContent = editorRef.current.innerHTML
+
+      // Initialisation au premier render
+      if (!isInitializedRef.current) {
+        editorRef.current.innerHTML = value || ''
+        lastValueRef.current = value
+        isInitializedRef.current = true
+        return
+      }
+
+      // Ne mettre à jour que si le contenu a vraiment changé
+      if (currentContent !== value && lastValueRef.current !== value) {
+        // Sauvegarder la position du curseur
+        const selection = window.getSelection()
+        let savedRange: Range | null = null
+        if (selection && selection.rangeCount > 0) {
+          savedRange = selection.getRangeAt(0).cloneRange()
+        }
+
+        editorRef.current.innerHTML = value
+        lastValueRef.current = value
+
+        // Restaurer la position du curseur
+        if (savedRange && selection) {
+          try {
+            selection.removeAllRanges()
+            selection.addRange(savedRange)
+          } catch (error) {
+            // Ignorer les erreurs si le curseur ne peut pas être restauré
+            console.debug('Could not restore cursor position:', error)
+          }
+        }
+      }
     }
   }, [value])
 
   const handleInput = () => {
     if (editorRef.current) {
       isUpdatingRef.current = true
-      onChange(editorRef.current.innerHTML)
+      const newValue = editorRef.current.innerHTML
+      lastValueRef.current = newValue
+      onChange(newValue)
       setTimeout(() => {
         isUpdatingRef.current = false
-      }, 0)
+      }, 100)
     }
   }
 

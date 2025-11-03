@@ -39,6 +39,9 @@ export interface Summary {
       detailed_summary: string // Résumé détaillé du sujet (5-10 lignes)
     }>
   }
+  // Notes taken during the meeting
+  rawNotes?: string // Original HTML notes from user
+  enhancedNotes?: string // AI-enhanced version of notes
   // Document édité au format HTML (pour la vue détaillée WYSIWYG)
   editedDocument?: string
   // Deprecated fields (kept for backward compatibility)
@@ -58,6 +61,7 @@ export interface Meeting {
   transcriptSegments?: TranscriptSegment[] // For uploaded files with timestamps
   suggestions: Suggestions
   summary?: Summary
+  notes?: string // HTML notes taken during the meeting
   createdAt: string
   updatedAt?: string // Last update timestamp
   status: 'active' | 'processing' | 'completed'

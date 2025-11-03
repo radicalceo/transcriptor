@@ -16,6 +16,7 @@ export default function DetailedSummaryPage() {
   const [editedContent, setEditedContent] = useState('')
   const [isRegenerating, setIsRegenerating] = useState(false)
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
+  const [notesMode, setNotesMode] = useState<'document' | 'raw' | 'enhanced'>('document')
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
@@ -27,7 +28,7 @@ export default function DetailedSummaryPage() {
         if (data.success) {
           setMeeting(data.meeting)
 
-          // Initialiser le contenu édité
+          // Initialiser le contenu édité selon le mode
           if (data.meeting.summary) {
             const htmlContent = data.meeting.summary.editedDocument || summaryToHtml(
               data.meeting.summary,
@@ -53,6 +54,32 @@ export default function DetailedSummaryPage() {
     loadMeeting()
   }, [meetingId])
 
+  // Charger le bon contenu quand le mode change
+  useEffect(() => {
+    if (!meeting?.summary) return
+
+    let content = ''
+    switch (notesMode) {
+      case 'raw':
+        content = meeting.summary.rawNotes || meeting.notes || '<p>Aucune note brute disponible</p>'
+        break
+      case 'enhanced':
+        content = meeting.summary.enhancedNotes || '<p>Aucune note enrichie disponible</p>'
+        break
+      case 'document':
+        content = meeting.summary.editedDocument || summaryToHtml(
+          meeting.summary,
+          meeting.title,
+          new Date(meeting.createdAt).toLocaleString('fr-FR', {
+            dateStyle: 'long',
+            timeStyle: 'short',
+          })
+        )
+        break
+    }
+    setEditedContent(content)
+  }, [notesMode, meeting])
+
   // Auto-save avec debounce
   const handleContentChange = useCallback((newContent: string) => {
     setEditedContent(newContent)
@@ -67,31 +94,62 @@ export default function DetailedSummaryPage() {
     saveTimeoutRef.current = setTimeout(async () => {
       setSaveStatus('saving')
       try {
-        const response = await fetch(`/api/summary/${meetingId}/document`, {
+        let endpoint = ''
+        let payload: any = {}
+
+        switch (notesMode) {
+          case 'raw':
+            endpoint = `/api/summary/${meetingId}/notes`
+            payload = { rawNotes: newContent }
+            break
+          case 'enhanced':
+            endpoint = `/api/summary/${meetingId}/notes`
+            payload = { enhancedNotes: newContent }
+            break
+          case 'document':
+            endpoint = `/api/summary/${meetingId}/document`
+            payload = { editedDocument: newContent }
+            break
+        }
+
+        const response = await fetch(endpoint, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ editedDocument: newContent }),
+          body: JSON.stringify(payload),
         })
 
         const data = await response.json()
         if (data.success) {
-          // Mettre à jour le meeting local avec le document édité
-          setMeeting((prev) =>
-            prev && prev.summary
-              ? { ...prev, summary: { ...prev.summary, editedDocument: newContent } }
-              : prev
-          )
+          // Mettre à jour le meeting local selon le mode
+          setMeeting((prev) => {
+            if (!prev || !prev.summary) return prev
+
+            const updatedSummary = { ...prev.summary }
+            switch (notesMode) {
+              case 'raw':
+                updatedSummary.rawNotes = newContent
+                break
+              case 'enhanced':
+                updatedSummary.enhancedNotes = newContent
+                break
+              case 'document':
+                updatedSummary.editedDocument = newContent
+                break
+            }
+
+            return { ...prev, summary: updatedSummary }
+          })
           setSaveStatus('saved')
         } else {
           setSaveStatus('unsaved')
-          console.error('Error auto-saving document')
+          console.error('Error auto-saving content')
         }
       } catch (error) {
-        console.error('Error auto-saving document:', error)
+        console.error('Error auto-saving content:', error)
         setSaveStatus('unsaved')
       }
     }, 2000) // Attendre 2 secondes après la dernière modification
-  }, [meetingId])
+  }, [meetingId, notesMode])
 
   // Nettoyer le timeout au démontage
   useEffect(() => {
@@ -319,11 +377,60 @@ export default function DetailedSummaryPage() {
         </div>
 
         {/* Content */}
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-6xl mx-auto space-y-6">
+          {/* Document éditable */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
+            {/* Boutons de mode */}
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setNotesMode('document')}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    notesMode === 'document'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  📄 Compte-rendu
+                </button>
+                {(meeting.summary?.rawNotes || meeting.notes) && (
+                  <button
+                    onClick={() => setNotesMode('raw')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      notesMode === 'raw'
+                        ? 'bg-amber-500 text-white'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    📝 Notes brutes
+                  </button>
+                )}
+                {meeting.summary?.enhancedNotes && (
+                  <button
+                    onClick={() => setNotesMode('enhanced')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      notesMode === 'enhanced'
+                        ? 'bg-green-500 text-white'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    ✨ Notes enrichies
+                  </button>
+                )}
+              </div>
+
+              {/* Indicateur du mode actif */}
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                {notesMode === 'document' && 'Édition du compte-rendu final'}
+                {notesMode === 'raw' && 'Édition des notes brutes'}
+                {notesMode === 'enhanced' && 'Édition des notes enrichies'}
+              </div>
+            </div>
+
             <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
               <p className="text-sm text-blue-800 dark:text-blue-200">
-                <strong>💡 Astuce :</strong> Ce document est automatiquement sauvegardé pendant que vous tapez. Vous pouvez modifier le texte, ajouter vos propres notes et utiliser la barre d&apos;outils pour formater le document.
+                <strong>💡 Astuce :</strong> Ce document est automatiquement sauvegardé pendant que vous tapez.
+                {notesMode !== 'document' && ' Les notes brutes et enrichies sont sauvegardées séparément.'}
               </p>
             </div>
             <RichTextEditor

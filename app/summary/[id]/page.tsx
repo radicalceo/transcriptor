@@ -25,6 +25,9 @@ export default function SummaryPage() {
   const [editedTitle, setEditedTitle] = useState('')
   const [isUpdatingTitle, setIsUpdatingTitle] = useState(false)
 
+  // Notes toggle state
+  const [showEnhancedNotes, setShowEnhancedNotes] = useState(true)
+
   // Chat state
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [chatInput, setChatInput] = useState('')
@@ -495,6 +498,51 @@ ${
                 </p>
               )}
             </div>
+
+            {/* 1.5. Notes */}
+            {(summary.rawNotes || summary.enhancedNotes) && (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
+                    Notes de réunion
+                  </h2>
+                  {summary.rawNotes && summary.enhancedNotes && (
+                    <div className="flex gap-2 text-sm">
+                      <button
+                        onClick={() => setShowEnhancedNotes(false)}
+                        className={`px-3 py-1 rounded-md transition-colors ${
+                          !showEnhancedNotes
+                            ? 'bg-amber-500 text-white'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        }`}
+                      >
+                        Notes brutes
+                      </button>
+                      <button
+                        onClick={() => setShowEnhancedNotes(true)}
+                        className={`px-3 py-1 rounded-md transition-colors ${
+                          showEnhancedNotes
+                            ? 'bg-amber-500 text-white'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        }`}
+                      >
+                        Notes enrichies
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div className="prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
+                  {showEnhancedNotes && summary.enhancedNotes ? (
+                    <div dangerouslySetInnerHTML={{ __html: summary.enhancedNotes }} />
+                  ) : summary.rawNotes ? (
+                    <div dangerouslySetInnerHTML={{ __html: summary.rawNotes }} />
+                  ) : (
+                    <p className="text-gray-500 dark:text-gray-400 italic">Aucune note disponible</p>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* 2. Actions */}
             {summary.actions.length > 0 && (

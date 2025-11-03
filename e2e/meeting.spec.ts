@@ -80,7 +80,7 @@ test.describe('Page Meeting', () => {
     await expect(page.getByText('Commençons la réunion')).toBeVisible()
   })
 
-  test('affiche le panel de suggestions', async ({ page, context }) => {
+  test('affiche le panel de notes', async ({ page, context }) => {
     await context.grantPermissions(['microphone'])
 
     await page.route('**/api/meeting/test-meeting-id', async (route) => {
@@ -96,12 +96,11 @@ test.describe('Page Meeting', () => {
               status: 'completed',
               transcript: ['Test transcript'],
               transcriptSegments: [],
+              notes: '',
               suggestions: {
-                topics: ['Budget', 'Roadmap Q1'],
-                decisions: ['Lancer le projet le 1er novembre'],
-                actions: [
-                  { text: 'Préparer le deck', assignee: 'Julien', due_date: '2025-10-25' },
-                ],
+                topics: [],
+                decisions: [],
+                actions: [],
               },
             },
           }),
@@ -114,10 +113,12 @@ test.describe('Page Meeting', () => {
     await page.goto('/meeting/test-meeting-id')
     await page.waitForLoadState('networkidle')
 
-    // Vérifier que le panel de suggestions existe (simplifié)
-    // Les suggestions peuvent être vides sur une nouvelle page, donc on vérifie juste la structure
-    const suggestionsPanel = page.locator('text=Thèmes').or(page.locator('text=Décisions')).or(page.locator('text=Actions'))
-    await expect(suggestionsPanel.first()).toBeVisible()
+    // Vérifier que le panel de notes existe (remplace le panel de suggestions)
+    const notesPanel = page.locator('text=Notes')
+    await expect(notesPanel.first()).toBeVisible()
+
+    // Vérifier que le texte d'aide est présent
+    await expect(page.getByText('Prenez des notes pendant la réunion')).toBeVisible()
   })
 
   test('affiche le bouton terminer le meeting', async ({ page, context }) => {

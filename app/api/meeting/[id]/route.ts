@@ -35,6 +35,7 @@ export async function GET(
           actions: JSON.parse(meeting.actions),
         },
         summary: meeting.summary ? JSON.parse(meeting.summary) : null,
+        notes: meeting.notes || '',
         duration: meeting.duration,
         createdAt: meeting.createdAt,
       },
@@ -99,6 +100,38 @@ export async function POST(
     console.error('Error adding transcript:', error)
     return NextResponse.json(
       { success: false, error: 'Failed to add transcript' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const { notes } = await request.json()
+
+    if (notes === undefined) {
+      return NextResponse.json(
+        { success: false, error: 'Notes required' },
+        { status: 400 }
+      )
+    }
+
+    await prisma.meeting.update({
+      where: { id },
+      data: { notes },
+    })
+
+    return NextResponse.json({
+      success: true,
+    })
+  } catch (error) {
+    console.error('Error updating notes:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to update notes' },
       { status: 500 }
     )
   }
