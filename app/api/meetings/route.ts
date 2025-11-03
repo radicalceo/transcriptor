@@ -1,9 +1,24 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireAuth } from '@/lib/session'
 
 export async function GET() {
   try {
+    // Get authenticated user
+    let user
+    try {
+      user = await requireAuth()
+    } catch (error) {
+      return NextResponse.json(
+        { success: false, error: 'Non authentifié' },
+        { status: 401 }
+      )
+    }
+
     const dbMeetings = await prisma.meeting.findMany({
+      where: {
+        userId: user.id,
+      },
       orderBy: {
         createdAt: 'desc',
       },

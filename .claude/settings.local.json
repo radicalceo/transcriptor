@@ -15,7 +15,11 @@
       "Bash(curl:*)",
       "Bash(npx playwright install)",
       "Bash(npm run test:e2e:*)",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "Bash(openssl rand:*)",
+      "Bash(pkill:*)",
+      "Bash(npx next dev)",
+      "Bash(npm uninstall:*)"
     ],
     "deny": [],
     "ask": []

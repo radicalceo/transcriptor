@@ -2,12 +2,24 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import fs from 'fs/promises'
 import path from 'path'
+import { requireAuth } from '@/lib/session'
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Get authenticated user
+    let user
+    try {
+      user = await requireAuth()
+    } catch (error) {
+      return NextResponse.json(
+        { success: false, error: 'Non authentifié' },
+        { status: 401 }
+      )
+    }
+
     const { id } = await params
     const body = await request.json()
     const { title } = body
@@ -16,6 +28,25 @@ export async function PATCH(
       return NextResponse.json(
         { success: false, error: 'Title is required' },
         { status: 400 }
+      )
+    }
+
+    // Check if meeting belongs to user
+    const meeting = await prisma.meeting.findUnique({
+      where: { id },
+    })
+
+    if (!meeting) {
+      return NextResponse.json(
+        { success: false, error: 'Meeting not found' },
+        { status: 404 }
+      )
+    }
+
+    if (meeting.userId !== user.id) {
+      return NextResponse.json(
+        { success: false, error: 'Non autorisé' },
+        { status: 403 }
       )
     }
 
@@ -43,9 +74,20 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Get authenticated user
+    let user
+    try {
+      user = await requireAuth()
+    } catch (error) {
+      return NextResponse.json(
+        { success: false, error: 'Non authentifié' },
+        { status: 401 }
+      )
+    }
+
     const { id } = await params
 
-    // Check if meeting exists
+    // Check if meeting exists and belongs to user
     const meeting = await prisma.meeting.findUnique({
       where: { id },
     })
@@ -54,6 +96,13 @@ export async function DELETE(
       return NextResponse.json(
         { success: false, error: 'Meeting not found' },
         { status: 404 }
+      )
+    }
+
+    if (meeting.userId !== user.id) {
+      return NextResponse.json(
+        { success: false, error: 'Non autorisé' },
+        { status: 403 }
       )
     }
 

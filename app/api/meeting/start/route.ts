@@ -1,9 +1,21 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { meetingStore } from '@/lib/services/meetingStore'
+import { requireAuth } from '@/lib/session'
 
 export async function POST() {
   try {
+    // Get authenticated user
+    let user
+    try {
+      user = await requireAuth()
+    } catch (error) {
+      return NextResponse.json(
+        { success: false, error: 'Non authentifié' },
+        { status: 401 }
+      )
+    }
+
     const meeting = await prisma.meeting.create({
       data: {
         status: 'active',
@@ -13,6 +25,7 @@ export async function POST() {
         topics: '[]',
         decisions: '[]',
         actions: '[]',
+        userId: user.id,
       },
     })
 
