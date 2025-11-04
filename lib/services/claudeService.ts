@@ -117,7 +117,7 @@ ${notesText}
 IMPORTANT: L'utilisateur a pris ces notes pendant la réunion. Tu dois:
 1. Utiliser ces notes pour enrichir ton analyse et ton résumé
 2. Intégrer les points clés des notes dans le résumé final
-3. Générer une version améliorée et structurée de ces notes dans "enhancedNotes"`
+3. Utiliser ces notes comme base pour "enhancedNotes" en y ajoutant le contexte de la transcription`
     }
 
     userPrompt += `
@@ -132,17 +132,25 @@ Contrainte:
   * "open_questions": liste des questions ouvertes
 
 - Pour la VUE DÉTAILLÉE (detailed):
-  * "summary_detailed": un résumé approfondi de 3-5 paragraphes décrivant le contexte, les enjeux, les discussions principales et les conclusions de la réunion. Sois verbeux et détaillé.
-  * "actions_detailed": un paragraphe détaillé (10-15 lignes) expliquant le contexte des actions, pourquoi elles sont nécessaires, les enjeux et les priorités. Développe le contexte et les implications.
-  * "decisions_detailed": un paragraphe détaillé (10-15 lignes) expliquant le contexte des décisions, comment elles ont été prises, leurs implications et leur importance. Sois explicatif et contextuel.
-  * "open_questions_detailed": un paragraphe détaillé (10-15 lignes) expliquant les questions restées sans réponse, pourquoi elles sont importantes, et ce qui doit être clarifié. Développe les enjeux et implications.
-  * "topics_detailed": pour chaque sujet, un résumé TRÈS détaillé sous forme de PARAGRAPHES DESCRIPTIFS (15-20 lignes minimum) couvrant:
-    - Le contexte et les enjeux du sujet
-    - Les discussions principales avec les différents points de vue exprimés
-    - Les préoccupations et problématiques soulevées
-    - Les solutions ou pistes évoquées
-    - Les implications et conséquences discutées
-    - Utilise des PARAGRAPHES complets et fluides, PAS de bullet points ou de listes. Rédige un texte narratif et descriptif.
+  * "summary_detailed": un résumé de 2-3 paragraphes décrivant le contexte, les enjeux et conclusions
+  * "actions_detailed": un paragraphe (5-8 lignes) expliquant le contexte des actions et priorités
+  * "decisions_detailed": un paragraphe (5-8 lignes) expliquant le contexte des décisions et implications
+  * "open_questions_detailed": un paragraphe (5-8 lignes) expliquant les questions ouvertes et leur importance
+  * "topics_detailed": pour chaque sujet, un paragraphe (8-10 lignes) couvrant le contexte, discussions principales et conclusions
+
+- Pour les NOTES ENRICHIES (enhancedNotes):
+  * TOUJOURS générer des notes enrichies, même sans notes utilisateur
+  * Si notes utilisateur: les enrichir avec le contexte de la transcription
+  * Si pas de notes utilisateur: créer des notes structurées basées sur la transcription
+  * Format HTML avec structure claire:
+    - <h2> pour les grands thèmes
+    - <h3> pour les sous-sections
+    - <ul> et <li> pour les listes à puces
+    - <strong> pour les points importants
+    - <em> pour les nuances ou détails
+    - <p> pour les paragraphes explicatifs
+  * Contenu: résumé narratif et chronologique de la réunion avec tous les détails importants, citations clés, contexte et décisions
+  * Style: notes de réunion professionnelles, détaillées et bien structurées
 
 Réponds EXCLUSIVEMENT avec un JSON valide selon ce schéma:
 {
@@ -152,18 +160,18 @@ Réponds EXCLUSIVEMENT avec un JSON valide selon ce schéma:
   "open_questions": ["string (questions ouvertes et follow-ups)"],
   "topics": [{"title":"string","summary":"string (synthèse courte de 1-2 lignes)"}],
   "detailed": {
-    "summary_detailed": "string (résumé détaillé de 3-5 paragraphes approfondis)",
-    "actions_detailed": "string (analyse détaillée de 10-15 lignes)",
-    "decisions_detailed": "string (analyse détaillée de 10-15 lignes)",
-    "open_questions_detailed": "string (analyse détaillée de 10-15 lignes)",
-    "topics_detailed": [{"title":"string","detailed_summary":"string (analyse très détaillée de 15-20 lignes minimum avec bullet points et contexte approfondi)"}]
+    "summary_detailed": "string (résumé de 2-3 paragraphes)",
+    "actions_detailed": "string (paragraphe de 5-8 lignes)",
+    "decisions_detailed": "string (paragraphe de 5-8 lignes)",
+    "open_questions_detailed": "string (paragraphe de 5-8 lignes)",
+    "topics_detailed": [{"title":"string","detailed_summary":"string (paragraphe de 8-10 lignes)"}]
   },
-  "enhancedNotes": "string|null (version améliorée, structurée et enrichie des notes utilisateur en HTML, null si pas de notes)"
+  "enhancedNotes": "string (notes enrichies structurées en HTML avec h2/h3/ul/li/strong/em/p - TOUJOURS générer)"
 }`
 
     const message = await anthropic.messages.create({
       model: 'claude-3-opus-20240229',
-      max_tokens: 4096,
+      max_tokens: 4096, // Opus max limit
       temperature: 0.3,
       system: FINAL_SYSTEM_PROMPT,
       messages: [
@@ -179,13 +187,9 @@ Réponds EXCLUSIVEMENT avec un JSON valide selon ce schéma:
       throw new Error('Unexpected response type')
     }
 
-    // Parse JSON response
-    const jsonMatch = content.text.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
-      throw new Error('No valid JSON found in response')
-    }
-
-    const parsed = JSON.parse(jsonMatch[0])
+    // Use robust JSON parsing with sanitization
+    const { robustJSONParse } = await import('@/lib/utils/sanitize')
+    const parsed = robustJSONParse(content.text)
     return {
       summary: parsed.summary || '',
       actions: parsed.actions || [],

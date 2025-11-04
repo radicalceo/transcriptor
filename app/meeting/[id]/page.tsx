@@ -549,25 +549,22 @@ export default function MeetingPage() {
     }
 
     console.log('🛑 About to call /api/summary')
-    try {
-      // Generate summary (or try to)
-      const response = await fetch('/api/summary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ meetingId }),
-      })
 
-      const data = await response.json()
+    // Start summary generation in background (non-blocking)
+    // The summary page will handle polling for completion
+    fetch('/api/summary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ meetingId, async: true }),
+    }).catch((error) => {
+      console.error('Error starting summary generation:', error)
+      // Error will be handled on summary page
+    })
 
-      // Rediriger vers summary même si pas de résumé généré
-      // (la page summary affichera un message approprié)
-      router.push(`/summary/${meetingId}`)
-
-    } catch (error) {
-      console.error('Error ending meeting:', error)
-      // Rediriger quand même vers la page summary
-      router.push(`/summary/${meetingId}`)
-    }
+    // Redirect immediately to summary page
+    // The page will show a loader and poll for the summary
+    console.log('🛑 Redirecting to summary page immediately')
+    router.push(`/summary/${meetingId}`)
   }
 
   const saveNotes = async (notesContent: string) => {

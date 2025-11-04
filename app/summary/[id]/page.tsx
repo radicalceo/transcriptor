@@ -26,9 +26,6 @@ export default function SummaryPage() {
   const [editedTitle, setEditedTitle] = useState('')
   const [isUpdatingTitle, setIsUpdatingTitle] = useState(false)
 
-  // Notes toggle state
-  const [showEnhancedNotes, setShowEnhancedNotes] = useState(true)
-
   // Chat state
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [chatInput, setChatInput] = useState('')
@@ -44,10 +41,14 @@ export default function SummaryPage() {
         if (data.success) {
           setMeeting(data.meeting)
 
-          // If summary is not ready yet, poll every 2 seconds
+          // If summary is not ready yet, keep loading and poll every 2 seconds
           if (!data.meeting.summary && data.meeting.status === 'processing') {
+            // Keep isLoading true while processing
+            console.log('⏳ Summary still processing, polling again in 2s...')
             setTimeout(loadMeeting, 2000)
           } else {
+            // Summary is ready or error occurred
+            console.log('✅ Summary ready or meeting complete')
             setIsLoading(false)
           }
         } else {
@@ -242,14 +243,31 @@ ${
     alert('Copié dans le presse-papier !')
   }
 
-  if (isLoading) {
+  // Show loader while loading OR while processing
+  if (isLoading || (meeting && meeting.status === 'processing' && !meeting.summary)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">
-            Génération du résumé en cours...
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="relative">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-indigo-200 border-t-indigo-600 mx-auto"></div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="h-8 w-8 bg-indigo-600 rounded-full animate-pulse"></div>
+            </div>
+          </div>
+          <h2 className="mt-6 text-2xl font-bold text-gray-900 dark:text-white">
+            Génération du résumé
+          </h2>
+          <p className="mt-3 text-gray-600 dark:text-gray-400 leading-relaxed">
+            Claude analyse votre réunion et génère un résumé détaillé avec les décisions, actions et points clés.
           </p>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-500">
+            Cela peut prendre quelques secondes...
+          </p>
+          {meeting && (
+            <p className="mt-4 text-xs text-indigo-600 dark:text-indigo-400 font-mono">
+              Status: {meeting.status}
+            </p>
+          )}
         </div>
       </div>
     )
@@ -261,6 +279,11 @@ ${
         <div className="text-center">
           <p className="text-gray-600 dark:text-gray-400">
             Résumé non disponible
+          </p>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-500">
+            {meeting?.status === 'error'
+              ? 'Une erreur est survenue lors de la génération du résumé'
+              : 'Le meeting n\'a pas encore de résumé'}
           </p>
           <button
             onClick={() => router.push('/')}
@@ -499,51 +522,6 @@ ${
                 </p>
               )}
             </div>
-
-            {/* 1.5. Notes */}
-            {(summary.rawNotes || summary.enhancedNotes) && (
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                    <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
-                    Notes de réunion
-                  </h2>
-                  {summary.rawNotes && summary.enhancedNotes && (
-                    <div className="flex gap-2 text-sm">
-                      <button
-                        onClick={() => setShowEnhancedNotes(false)}
-                        className={`px-3 py-1 rounded-md transition-colors ${
-                          !showEnhancedNotes
-                            ? 'bg-amber-500 text-white'
-                            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                        }`}
-                      >
-                        Notes brutes
-                      </button>
-                      <button
-                        onClick={() => setShowEnhancedNotes(true)}
-                        className={`px-3 py-1 rounded-md transition-colors ${
-                          showEnhancedNotes
-                            ? 'bg-amber-500 text-white'
-                            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                        }`}
-                      >
-                        Notes enrichies
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <div className="prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
-                  {showEnhancedNotes && summary.enhancedNotes ? (
-                    <div dangerouslySetInnerHTML={createSafeHTML(summary.enhancedNotes)} />
-                  ) : summary.rawNotes ? (
-                    <div dangerouslySetInnerHTML={createSafeHTML(summary.rawNotes)} />
-                  ) : (
-                    <p className="text-gray-500 dark:text-gray-400 italic">Aucune note disponible</p>
-                  )}
-                </div>
-              </div>
-            )}
 
             {/* 2. Actions */}
             {summary.actions.length > 0 && (

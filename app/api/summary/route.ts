@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma'
 
 export async function POST(request: Request) {
   try {
-    const { meetingId } = await request.json()
+    const { meetingId, async = true } = await request.json()
 
     if (!meetingId) {
       return NextResponse.json(
@@ -72,7 +72,26 @@ export async function POST(request: Request) {
       meetingStore.updateStatus(meetingId, 'processing')
     }
 
-    // Generate final summary (include notes if available)
+    // If async mode (default), start generation in background and return immediately
+    if (async) {
+      // Launch generation in background (non-blocking)
+      generateSummaryAsync(meetingId, meeting).catch((error) => {
+        console.error('Background summary generation failed:', error)
+        // Update status to error
+        prisma.meeting.update({
+          where: { id: meetingId },
+          data: { status: 'error' },
+        }).catch(console.error)
+      })
+
+      return NextResponse.json({
+        success: true,
+        status: 'processing',
+        message: 'Summary generation started',
+      })
+    }
+
+    // Sync mode (for backwards compatibility): wait for generation
     const summary = await generateFinalSummary(
       meeting.transcript,
       meeting.suggestions,
@@ -103,5 +122,44 @@ export async function POST(request: Request) {
       { success: false, error: 'Failed to generate summary' },
       { status: 500 }
     )
+  }
+}
+
+// Background async function to generate summary
+async function generateSummaryAsync(meetingId: string, meeting: any) {
+  try {
+    console.log(`🔄 Starting async summary generation for meeting ${meetingId}`)
+
+    const summary = await generateFinalSummary(
+      meeting.transcript,
+      meeting.suggestions,
+      meeting.notes || undefined
+    )
+
+    // Save summary to database
+    await prisma.meeting.update({
+      where: { id: meetingId },
+      data: {
+        summary: JSON.stringify(summary),
+        status: 'completed',
+      },
+    })
+
+    // Also update in memory store if it exists
+    if (meetingStore.get(meetingId)) {
+      meetingStore.setSummary(meetingId, summary)
+    }
+
+    console.log(`✅ Async summary generation completed for meeting ${meetingId}`)
+  } catch (error) {
+    console.error(`❌ Async summary generation failed for meeting ${meetingId}:`, error)
+
+    // Update status to error in database
+    await prisma.meeting.update({
+      where: { id: meetingId },
+      data: { status: 'error' },
+    })
+
+    throw error
   }
 }
