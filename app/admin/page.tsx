@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 interface User {
   id: string;
@@ -308,10 +309,12 @@ export default function AdminPage() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           {user.image ? (
-                            <img
+                            <Image
                               className="h-10 w-10 rounded-full"
                               src={user.image}
                               alt={user.name || "User"}
+                              width={40}
+                              height={40}
                             />
                           ) : (
                             <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">

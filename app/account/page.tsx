@@ -137,7 +137,7 @@ export default function AccountPage() {
                 d="M15 19l-7-7 7-7"
               />
             </svg>
-            Retour à l'accueil
+            Retour à l&apos;accueil
           </Link>
           <h1 className="text-3xl font-bold text-gray-900">Mon compte</h1>
         </div>

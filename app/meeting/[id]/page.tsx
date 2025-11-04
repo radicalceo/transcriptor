@@ -407,7 +407,7 @@ export default function MeetingPage() {
         audioContextRef.current = null
       }
     }
-  }, [meetingId, meeting?.id, meeting?.status, audioMode])
+  }, [meetingId, meeting, audioMode])
 
 
   // Save notes before page unload
