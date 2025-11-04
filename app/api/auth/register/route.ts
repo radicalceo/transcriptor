@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { sendNewAccountNotification } from "@/lib/email";
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,6 +44,15 @@ export async function POST(request: NextRequest) {
         email,
         password: hashedPassword,
       },
+    });
+
+    // Envoyer l'email de notification (non-bloquant)
+    sendNewAccountNotification({
+      userName: user.name,
+      userEmail: user.email,
+      signupMethod: "credentials",
+    }).catch((error) => {
+      console.error("Erreur lors de l'envoi de l'email de notification:", error);
     });
 
     return NextResponse.json(

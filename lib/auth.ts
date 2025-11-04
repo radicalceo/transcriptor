@@ -4,6 +4,7 @@ import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { sendNewAccountNotification } from "@/lib/email";
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -67,6 +68,25 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string;
       }
       return session;
+    },
+  },
+  events: {
+    async createUser({ user }) {
+      // Détecter la méthode d'inscription
+      const account = await prisma.account.findFirst({
+        where: { userId: user.id },
+      });
+
+      const signupMethod = account?.provider === "google" ? "google" : "credentials";
+
+      // Envoyer l'email de notification de manière asynchrone (non-bloquant)
+      sendNewAccountNotification({
+        userName: user.name,
+        userEmail: user.email!,
+        signupMethod,
+      }).catch((error) => {
+        console.error("Erreur lors de l'envoi de l'email de notification:", error);
+      });
     },
   },
   secret: process.env.NEXTAUTH_SECRET,
