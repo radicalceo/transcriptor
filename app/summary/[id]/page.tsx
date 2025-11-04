@@ -3,6 +3,7 @@
 import { useParams, useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 import type { Meeting, Summary, TopicDetail } from '@/lib/types'
+import { createSafeHTML } from '@/lib/utils/sanitize'
 
 interface ChatMessage {
   role: 'user' | 'assistant'
@@ -534,9 +535,9 @@ ${
                 </div>
                 <div className="prose prose-sm dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
                   {showEnhancedNotes && summary.enhancedNotes ? (
-                    <div dangerouslySetInnerHTML={{ __html: summary.enhancedNotes }} />
+                    <div dangerouslySetInnerHTML={createSafeHTML(summary.enhancedNotes)} />
                   ) : summary.rawNotes ? (
-                    <div dangerouslySetInnerHTML={{ __html: summary.rawNotes }} />
+                    <div dangerouslySetInnerHTML={createSafeHTML(summary.rawNotes)} />
                   ) : (
                     <p className="text-gray-500 dark:text-gray-400 italic">Aucune note disponible</p>
                   )}
