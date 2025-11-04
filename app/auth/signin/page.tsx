@@ -143,6 +143,17 @@ export default function SignIn() {
               </div>
             </div>
 
+            <div className="flex items-center justify-end">
+              <div className="text-sm">
+                <Link
+                  href="/auth/forgot-password"
+                  className="font-medium text-blue-600 hover:text-blue-500"
+                >
+                  Mot de passe oublié ?
+                </Link>
+              </div>
+            </div>
+
             <div>
               <button
                 type="submit"

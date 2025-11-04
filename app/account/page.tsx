@@ -2,13 +2,24 @@
 
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, FormEvent } from "react";
 import Link from "next/link";
 
 export default function AccountPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+
+  // Password change modal
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -19,6 +30,74 @@ export default function AccountPage() {
   const handleSignOut = async () => {
     setIsLoading(true);
     await signOut({ callbackUrl: "/" });
+  };
+
+  const handleChangePassword = async (e: FormEvent) => {
+    e.preventDefault();
+    setPasswordLoading(true);
+    setPasswordMessage(null);
+
+    if (newPassword !== confirmPassword) {
+      setPasswordMessage({
+        type: "error",
+        text: "Les mots de passe ne correspondent pas",
+      });
+      setPasswordLoading(false);
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setPasswordMessage({
+        type: "error",
+        text: "Le nouveau mot de passe doit contenir au moins 8 caractères",
+      });
+      setPasswordLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setPasswordMessage({
+          type: "error",
+          text: data.error || "Une erreur est survenue",
+        });
+        return;
+      }
+
+      setPasswordMessage({
+        type: "success",
+        text: "Mot de passe modifié avec succès !",
+      });
+
+      // Reset form after success
+      setTimeout(() => {
+        setShowPasswordModal(false);
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+        setPasswordMessage(null);
+      }, 2000);
+    } catch (error) {
+      setPasswordMessage({
+        type: "error",
+        text: "Erreur lors du changement de mot de passe",
+      });
+    } finally {
+      setPasswordLoading(false);
+    }
   };
 
   if (status === "loading") {
@@ -118,10 +197,7 @@ export default function AccountPage() {
               <div className="pb-3 border-b border-gray-200">
                 <button
                   className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center gap-2"
-                  onClick={() => {
-                    // TODO: Implement password change functionality
-                    alert("Fonctionnalité de changement de mot de passe à venir");
-                  }}
+                  onClick={() => setShowPasswordModal(true)}
                 >
                   <svg
                     className="w-5 h-5"
@@ -192,6 +268,136 @@ export default function AccountPage() {
           </div>
         </div>
       </div>
+
+      {/* Password Change Modal */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-900">
+                Changer le mot de passe
+              </h3>
+              <button
+                onClick={() => {
+                  setShowPasswordModal(false);
+                  setCurrentPassword("");
+                  setNewPassword("");
+                  setConfirmPassword("");
+                  setPasswordMessage(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              <div>
+                <label
+                  htmlFor="currentPassword"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Mot de passe actuel
+                </label>
+                <input
+                  id="currentPassword"
+                  type="password"
+                  required
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  disabled={passwordLoading}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="newPassword"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Nouveau mot de passe
+                </label>
+                <input
+                  id="newPassword"
+                  type="password"
+                  required
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Min. 8 caractères"
+                  disabled={passwordLoading}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="confirmPassword"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Confirmer le nouveau mot de passe
+                </label>
+                <input
+                  id="confirmPassword"
+                  type="password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  disabled={passwordLoading}
+                />
+              </div>
+
+              {passwordMessage && (
+                <div
+                  className={`rounded-md p-3 ${
+                    passwordMessage.type === "error"
+                      ? "bg-red-50 text-red-800"
+                      : "bg-green-50 text-green-800"
+                  }`}
+                >
+                  <p className="text-sm">{passwordMessage.text}</p>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPasswordModal(false);
+                    setCurrentPassword("");
+                    setNewPassword("");
+                    setConfirmPassword("");
+                    setPasswordMessage(null);
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  disabled={passwordLoading}
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={passwordLoading}
+                >
+                  {passwordLoading ? "Modification..." : "Modifier"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
