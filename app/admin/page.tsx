@@ -26,6 +26,18 @@ export default function AdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
 
+  // Reset password modal
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
+  const [resetPasswordUserId, setResetPasswordUserId] = useState<string | null>(null);
+  const [resetPasswordUserEmail, setResetPasswordUserEmail] = useState<string>("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [resettingPassword, setResettingPassword] = useState(false);
+  const [resetPasswordMessage, setResetPasswordMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/auth/signin");
@@ -90,6 +102,88 @@ export default function AdminPage() {
       );
     } finally {
       setDeletingUserId(null);
+    }
+  };
+
+  const openResetPasswordModal = (userId: string, userEmail: string) => {
+    setResetPasswordUserId(userId);
+    setResetPasswordUserEmail(userEmail);
+    setShowResetPasswordModal(true);
+    setNewPassword("");
+    setConfirmPassword("");
+    setResetPasswordMessage(null);
+  };
+
+  const closeResetPasswordModal = () => {
+    setShowResetPasswordModal(false);
+    setResetPasswordUserId(null);
+    setResetPasswordUserEmail("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setResetPasswordMessage(null);
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResettingPassword(true);
+    setResetPasswordMessage(null);
+
+    if (newPassword !== confirmPassword) {
+      setResetPasswordMessage({
+        type: "error",
+        text: "Les mots de passe ne correspondent pas",
+      });
+      setResettingPassword(false);
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setResetPasswordMessage({
+        type: "error",
+        text: "Le mot de passe doit contenir au moins 8 caractères",
+      });
+      setResettingPassword(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/admin/users/${resetPasswordUserId}/reset-password`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ newPassword }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setResetPasswordMessage({
+          type: "error",
+          text: data.error || "Une erreur est survenue",
+        });
+        return;
+      }
+
+      setResetPasswordMessage({
+        type: "success",
+        text: "Mot de passe réinitialisé avec succès !",
+      });
+
+      // Fermer la modal après 1.5 secondes
+      setTimeout(() => {
+        closeResetPasswordModal();
+      }, 1500);
+    } catch (error) {
+      setResetPasswordMessage({
+        type: "error",
+        text: "Erreur lors de la réinitialisation du mot de passe",
+      });
+    } finally {
+      setResettingPassword(false);
     }
   };
 
@@ -270,17 +364,44 @@ export default function AdminPage() {
                             (Admin)
                           </span>
                         ) : (
-                          <button
-                            onClick={() =>
-                              handleDeleteUser(user.id, user.email)
-                            }
-                            disabled={deletingUserId === user.id}
-                            className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {deletingUserId === user.id
-                              ? "Suppression..."
-                              : "Supprimer"}
-                          </button>
+                          <div className="flex items-center justify-end gap-3">
+                            {/* Reset password button - only for email/password users */}
+                            {user._count.accounts === 0 && (
+                              <button
+                                onClick={() =>
+                                  openResetPasswordModal(user.id, user.email)
+                                }
+                                className="text-blue-600 hover:text-blue-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Réinitialiser le mot de passe"
+                              >
+                                <svg
+                                  className="w-5 h-5"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
+                                  />
+                                </svg>
+                              </button>
+                            )}
+                            {/* Delete button */}
+                            <button
+                              onClick={() =>
+                                handleDeleteUser(user.id, user.email)
+                              }
+                              disabled={deletingUserId === user.id}
+                              className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {deletingUserId === user.id
+                                ? "Suppression..."
+                                : "Supprimer"}
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -303,6 +424,111 @@ export default function AdminPage() {
           </div>
         )}
       </div>
+
+      {/* Reset Password Modal */}
+      {showResetPasswordModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-900">
+                Réinitialiser le mot de passe
+              </h3>
+              <button
+                onClick={closeResetPasswordModal}
+                className="text-gray-400 hover:text-gray-600"
+                disabled={resettingPassword}
+              >
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">
+              Utilisateur : <strong>{resetPasswordUserEmail}</strong>
+            </p>
+
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <div>
+                <label
+                  htmlFor="newPasswordAdmin"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Nouveau mot de passe
+                </label>
+                <input
+                  id="newPasswordAdmin"
+                  type="password"
+                  required
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Min. 8 caractères"
+                  disabled={resettingPassword}
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="confirmPasswordAdmin"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Confirmer le mot de passe
+                </label>
+                <input
+                  id="confirmPasswordAdmin"
+                  type="password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  disabled={resettingPassword}
+                />
+              </div>
+
+              {resetPasswordMessage && (
+                <div
+                  className={`rounded-md p-3 ${
+                    resetPasswordMessage.type === "error"
+                      ? "bg-red-50 text-red-800"
+                      : "bg-green-50 text-green-800"
+                  }`}
+                >
+                  <p className="text-sm">{resetPasswordMessage.text}</p>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={closeResetPasswordModal}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  disabled={resettingPassword}
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={resettingPassword}
+                >
+                  {resettingPassword ? "Réinitialisation..." : "Réinitialiser"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
