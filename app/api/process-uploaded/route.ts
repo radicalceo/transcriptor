@@ -160,7 +160,22 @@ async function processAudioFromBlob(meetingId: string, blobUrl: string) {
     console.log(`📁 Creating temp directory: ${tempDir}`)
     await mkdir(tempDir, { recursive: true })
 
-    const tempFile = join(tempDir, `${meetingId}-temp.audio`)
+    // Extract extension from the audio path URL
+    const urlWithoutQuery = blobUrl.split('?')[0]
+    const pathParts = urlWithoutQuery.split('/')
+    const filename = pathParts[pathParts.length - 1]
+    const filenameParts = filename.split('.')
+    let extension = filenameParts[filenameParts.length - 1] || 'mp4'
+
+    // Validate extension is a known audio format
+    const validExtensions = ['mp4', 'mp3', 'wav', 'webm', 'm4a', 'ogg', 'flac']
+    if (!validExtensions.includes(extension.toLowerCase())) {
+      console.log(`⚠️ Invalid extension "${extension}", defaulting to mp4`)
+      extension = 'mp4'
+    }
+
+    const tempFile = join(tempDir, `${meetingId}-temp.${extension}`)
+    console.log(`📁 Temp file path: ${tempFile}`)
 
     console.log(`💾 Writing to temp file: ${tempFile}`)
     await writeFile(tempFile, buffer)

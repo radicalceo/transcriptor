@@ -102,10 +102,31 @@ export default function MeetingPage() {
 
   // Start recording (only for live mode, not for completed uploads)
   useEffect(() => {
-    if (isRecordingRef.current) return // Éviter de démarrer plusieurs fois
-    if (!meeting) return
-    if (meeting.status === 'processing' || meeting.status === 'completed') return // Skip mic for uploads and completed meetings
-    if (!audioMode) return // Attendre que l'utilisateur choisisse un mode
+    console.log('🔍 Recording useEffect triggered', {
+      isRecordingRef: isRecordingRef.current,
+      hasMeeting: !!meeting,
+      meetingStatus: meeting?.status,
+      audioMode,
+    })
+
+    if (isRecordingRef.current) {
+      console.log('⏭️ Already recording, skipping')
+      return
+    }
+    if (!meeting) {
+      console.log('⏭️ No meeting yet, skipping')
+      return
+    }
+    if (meeting.status === 'processing' || meeting.status === 'completed') {
+      console.log('⏭️ Meeting is processing or completed, skipping')
+      return
+    }
+    if (!audioMode) {
+      console.log('⏭️ No audio mode selected yet, skipping')
+      return
+    }
+
+    console.log('✅ All conditions met, starting recording...')
 
     const startRecording = async () => {
       try {
@@ -121,13 +142,11 @@ export default function MeetingPage() {
           },
         })
 
-        console.log('🎙️ Microphone stream obtained')
+        console.log('✅ Microphone ready')
 
         if (audioMode === 'tab-and-mic') {
           // Mode visio: capturer aussi l'audio de l'onglet
           try {
-            console.log('🖥️ Requesting tab audio capture...')
-            console.log('🖥️ Browser:', navigator.userAgent)
             setIsRequestingScreenShare(true)
 
             // Créer une promesse avec timeout pour éviter les blocages
@@ -150,14 +169,11 @@ export default function MeetingPage() {
             const tabStream = await getDisplayMediaWithTimeout()
 
             setIsRequestingScreenShare(false)
-            console.log('🖥️ Tab stream obtained')
-            console.log(`📊 Video tracks: ${tabStream.getVideoTracks().length}`)
-            console.log(`📊 Audio tracks: ${tabStream.getAudioTracks().length}`)
+            console.log(`✅ Tab audio ready (${tabStream.getAudioTracks().length} tracks)`)
 
             // Arrêter la piste vidéo immédiatement (on ne veut que l'audio)
             tabStream.getVideoTracks().forEach(track => {
               track.stop()
-              console.log('🛑 Video track stopped (not needed)')
             })
 
             tabStreamRef.current = tabStream
@@ -183,13 +199,12 @@ export default function MeetingPage() {
             tabSource.connect(destination)
 
             combinedStream = destination.stream
-            console.log('🎵 Audio streams mixed successfully')
+            console.log('✅ Audio streams mixed')
 
             // Détecter si l'utilisateur arrête le partage d'écran
             const firstAudioTrack = tabStream.getAudioTracks()[0]
             if (firstAudioTrack) {
               firstAudioTrack.onended = () => {
-                console.log('⚠️ Tab sharing stopped by user')
                 alert('Le partage audio de l\'onglet a été arrêté. Seul le microphone sera enregistré.')
               }
             }
@@ -220,17 +235,11 @@ export default function MeetingPage() {
           combinedStream = micStream
         }
 
-        console.log(`📊 Audio tracks: ${combinedStream.getAudioTracks().length}`)
-        combinedStream.getAudioTracks().forEach((track, index) => {
-          console.log(`   Track ${index}: ${track.label}, enabled: ${track.enabled}, muted: ${track.muted}`)
-        })
-
         // Stocker le stream principal
         speechStreamRef.current = micStream
 
         // Cloner le stream combiné pour MediaRecorder (pour éviter les conflits)
         const recordStream = combinedStream.clone()
-        console.log('🎙️ Recording stream cloned')
         recordStreamRef.current = recordStream
 
         // Setup Web Speech API for transcription (Chrome/Edge)
@@ -243,11 +252,19 @@ export default function MeetingPage() {
           recognition.interimResults = true
           recognition.lang = 'fr-FR'
 
+          recognition.onstart = () => {
+            console.log('✅ Speech recognition started')
+          }
+
           recognition.onresult = async (event: any) => {
             const current = event.resultIndex
             const transcriptText = event.results[current][0].transcript
+            const isFinal = event.results[current].isFinal
 
-            if (event.results[current].isFinal) {
+            // Only log final transcripts
+            if (isFinal) {
+              console.log(`🎤 Transcript: "${transcriptText}"`)
+
               // Final transcript - send to API
               setTranscript((prev) => [...prev, transcriptText])
 
@@ -258,45 +275,58 @@ export default function MeetingPage() {
                   body: JSON.stringify({ transcript: transcriptText }),
                 })
               } catch (error) {
-                console.error('Error sending transcript:', error)
+                console.error('❌ Error sending transcript:', error)
               }
             }
           }
 
-          recognition.onerror = (event: any) => {
-            // Ignorer l'erreur "aborted" qui est normale lors de l'arrêt
-            if (event.error === 'aborted') {
-              return
-            }
+          recognition.onaudiostart = () => {
+            // Silent - too verbose
+          }
 
-            // Pour "no-speech", on log en mode silencieux et on laisse le mécanisme onend redémarrer
-            if (event.error === 'no-speech') {
-              if (process.env.NODE_ENV === 'development') {
-                console.log('⏸️ No speech detected, will auto-restart')
-              }
+          recognition.onaudioend = () => {
+            // Silent - too verbose
+          }
+
+          recognition.onsoundstart = () => {
+            // Silent - too verbose
+          }
+
+          recognition.onsoundend = () => {
+            // Silent - too verbose
+          }
+
+          recognition.onspeechstart = () => {
+            console.log('🗣️ Speech detected')
+          }
+
+          recognition.onspeechend = () => {
+            // Silent - too verbose
+          }
+
+          recognition.onerror = (event: any) => {
+            // Ignorer les erreurs normales
+            if (event.error === 'aborted' || event.error === 'no-speech') {
               return
             }
 
             // Pour "network", c'est souvent temporaire
             if (event.error === 'network') {
-              console.warn('⚠️ Network error in speech recognition, will retry')
+              console.warn('⚠️ Network error, retrying...')
               return
             }
 
-            // Pour les autres erreurs, on log et on tente de redémarrer
+            // Pour les autres erreurs, on log
             console.error('❌ Speech recognition error:', event.error)
 
             // Redémarrer après une erreur (sauf aborted)
             if (isRecordingRef.current && event.error !== 'aborted') {
               setTimeout(() => {
                 if (isRecordingRef.current && recognitionRef.current) {
-                  if (process.env.NODE_ENV === 'development') {
-                    console.log('🔄 Restarting after error...')
-                  }
                   try {
                     recognition.start()
                   } catch (error) {
-                    console.error('Failed to restart after error:', error)
+                    console.error('Failed to restart:', error)
                   }
                 }
               }, 500)
@@ -305,33 +335,26 @@ export default function MeetingPage() {
 
           // Redémarrer automatiquement la reconnaissance si elle s'arrête
           recognition.onend = () => {
-            // Si isRecordingRef est encore true, c'est que l'utilisateur n'a pas arrêté manuellement
-            // Donc on redémarre automatiquement, mais avec une limite pour éviter les boucles
             if (isRecordingRef.current && recognitionRef.current) {
               const now = Date.now()
               const timeSinceLastRestart = now - lastSpeechRestartRef.current
 
               // Ne redémarrer que si ça fait plus de 500ms depuis le dernier redémarrage
               if (timeSinceLastRestart > 500) {
-                // Log silencieux sauf si debug
-                if (process.env.NODE_ENV === 'development') {
-                  console.log('🔄 Auto-restarting speech recognition...')
-                }
                 lastSpeechRestartRef.current = now
                 try {
                   recognition.start()
                 } catch (error) {
-                  console.error('Error restarting recognition:', error)
+                  console.error('Error restarting:', error)
                 }
               } else {
-                console.warn('⚠️ Speech recognition restarting too frequently, throttling...')
-                // Attendre un peu plus avant de redémarrer
+                // Throttling
                 setTimeout(() => {
                   if (isRecordingRef.current && recognitionRef.current) {
                     try {
                       recognition.start()
                     } catch (error) {
-                      console.error('Error restarting recognition after throttle:', error)
+                      console.error('Error restarting after throttle:', error)
                     }
                   }
                 }, 1000)
@@ -382,43 +405,27 @@ export default function MeetingPage() {
         const mimeType = options.mimeType || 'audio/webm' // Stocker pour usage ultérieur
 
         mediaRecorder.ondataavailable = (event) => {
-          console.log(`🎤 ondataavailable triggered, data size: ${event.data.size} bytes`)
           if (event.data.size > 0) {
             // Ajouter au buffer local pour la fin du meeting
             audioChunksRef.current.push(event.data)
             // Ajouter aux chunks en attente d'envoi
             pendingChunksRef.current.push(event.data)
-            console.log(`✅ Chunk added. Total chunks: ${audioChunksRef.current.length}, Pending: ${pendingChunksRef.current.length}`)
-          } else {
-            console.log('⚠️ Empty chunk received')
           }
         }
 
-        // Start recording with chunks every 1 second (pour tester)
-        console.log('🎬 Starting MediaRecorder...')
-        mediaRecorder.start(1000) // Générer des chunks toutes les secondes
-        console.log(`📊 MediaRecorder started, state: ${mediaRecorder.state}`)
+        // Start recording with chunks every 1 second
+        mediaRecorder.start(1000)
         mediaRecorderRef.current = mediaRecorder
 
         // Sauvegarder les chunks audio périodiquement (toutes les 30 secondes)
         const saveInterval = setInterval(async () => {
-          console.log('🔄 Audio save interval triggered')
-          console.log(`📊 MediaRecorder state: ${mediaRecorder.state}`)
-          console.log(`📦 Pending chunks: ${pendingChunksRef.current.length}`)
-          console.log(`📦 All chunks: ${audioChunksRef.current.length}`)
-
           // Forcer la récupération des données disponibles
           if (mediaRecorder.state === 'recording') {
-            console.log('📢 Calling requestData()...')
             mediaRecorder.requestData()
-          } else {
-            console.log(`⚠️ MediaRecorder not recording (state: ${mediaRecorder.state})`)
           }
 
           // Attendre un peu pour que ondataavailable se déclenche
           await new Promise(resolve => setTimeout(resolve, 100))
-
-          console.log(`📦 After requestData, pending chunks: ${pendingChunksRef.current.length}`)
 
           if (pendingChunksRef.current.length > 0) {
             // Créer un blob avec tous les chunks en attente
@@ -434,21 +441,16 @@ export default function MeetingPage() {
             formData.append('isPartial', 'true')
 
             try {
-              console.log(`📤 Sending audio chunk (${blob.size} bytes)...`)
+              console.log(`📤 Saving audio chunk (${(blob.size / 1024).toFixed(1)}KB)`)
               await fetch('/api/meeting/save-audio', {
                 method: 'POST',
                 body: formData,
               })
-              console.log(`✅ Audio chunk sent successfully (${blob.size} bytes)`)
             } catch (error) {
-              console.error('❌ Error sending audio chunk:', error)
+              console.error('❌ Error saving audio:', error)
             }
-          } else {
-            console.log('⚠️ No audio chunks to send yet')
           }
         }, 30000) // Toutes les 30 secondes
-
-        console.log(`✅ Audio save interval created (ID: ${saveInterval})`)
 
         audioSaveIntervalRef.current = saveInterval
       } catch (error) {
@@ -493,7 +495,7 @@ export default function MeetingPage() {
         audioContextRef.current = null
       }
     }
-  }, [meetingId, meeting, audioMode])
+  }, [meetingId, audioMode]) // REMOVED 'meeting' from dependencies to prevent infinite loop
 
 
   // Save notes before page unload
