@@ -127,16 +127,27 @@ export default function MeetingPage() {
           // Mode visio: capturer aussi l'audio de l'onglet
           try {
             console.log('🖥️ Requesting tab audio capture...')
+            console.log('🖥️ Browser:', navigator.userAgent)
             setIsRequestingScreenShare(true)
 
-            const tabStream = await navigator.mediaDevices.getDisplayMedia({
-              video: true, // Obligatoire dans la plupart des navigateurs
-              audio: {
-                echoCancellation: false,
-                noiseSuppression: false,
-                autoGainControl: false,
-              },
-            })
+            // Créer une promesse avec timeout pour éviter les blocages
+            const getDisplayMediaWithTimeout = () => {
+              return Promise.race([
+                navigator.mediaDevices.getDisplayMedia({
+                  video: true, // Obligatoire dans la plupart des navigateurs
+                  audio: {
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false,
+                  },
+                }),
+                new Promise((_, reject) =>
+                  setTimeout(() => reject(new Error('Timeout: screen share selection took too long')), 60000)
+                ),
+              ]) as Promise<MediaStream>
+            }
+
+            const tabStream = await getDisplayMediaWithTimeout()
 
             setIsRequestingScreenShare(false)
             console.log('🖥️ Tab stream obtained')
@@ -780,11 +791,11 @@ export default function MeetingPage() {
             En attente de sélection
           </h2>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
-            Veuillez sélectionner un onglet à partager dans la fenêtre qui vient de s'ouvrir.
+            Veuillez sélectionner un onglet à partager dans la fenêtre qui vient de s&apos;ouvrir.
           </p>
           <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
             <p className="text-sm text-blue-800 dark:text-blue-300">
-              💡 N'oubliez pas de cocher <strong>"Partager l'audio"</strong> pour capturer le son de la visioconférence.
+              💡 N&apos;oubliez pas de cocher <strong>&quot;Partager l&apos;audio&quot;</strong> pour capturer le son de la visioconférence.
             </p>
           </div>
         </div>

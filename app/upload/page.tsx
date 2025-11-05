@@ -69,10 +69,23 @@ export default function UploadPage() {
       const formData = new FormData()
       formData.append('file', selectedFile)
 
-      const response = await fetch('/api/upload', {
+      // Essayer d'abord avec Blob Storage (pour gros fichiers)
+      // Si ça échoue, on essaiera /api/upload en fallback
+      let uploadEndpoint = '/api/upload-blob'
+      let response = await fetch(uploadEndpoint, {
         method: 'POST',
         body: formData,
       })
+
+      // Si Blob n'est pas configuré ou échoue, fallback sur upload direct
+      if (!response.ok && response.status === 500) {
+        console.log('Blob upload failed, trying direct upload...')
+        uploadEndpoint = '/api/upload'
+        response = await fetch(uploadEndpoint, {
+          method: 'POST',
+          body: formData,
+        })
+      }
 
       // Vérifier si la réponse est OK avant de parser le JSON
       if (!response.ok) {
