@@ -9,11 +9,29 @@ function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/";
+  const urlError = searchParams.get("error");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(urlError || "");
   const [loading, setLoading] = useState(false);
+
+  // Map NextAuth error codes to user-friendly messages
+  const getErrorMessage = (error: string) => {
+    const errorMessages: Record<string, string> = {
+      OAuthSignin: "Erreur lors de la connexion avec le fournisseur OAuth",
+      OAuthCallback: "Erreur lors du callback OAuth",
+      OAuthCreateAccount: "Erreur lors de la création du compte OAuth",
+      EmailCreateAccount: "Erreur lors de la création du compte email",
+      Callback: "Erreur lors de la redirection",
+      OAuthAccountNotLinked: "Un compte existe déjà avec cette adresse email",
+      EmailSignin: "Erreur lors de l'envoi de l'email",
+      CredentialsSignin: "Email ou mot de passe incorrect",
+      SessionRequired: "Veuillez vous connecter pour accéder à cette page",
+      Default: "Une erreur est survenue lors de la connexion",
+    };
+    return errorMessages[error] || errorMessages.Default;
+  };
 
   const handleCredentialsSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,7 +122,7 @@ function SignInForm() {
           <form onSubmit={handleCredentialsSignIn} className="mt-8 space-y-6">
             {error && (
               <div className="rounded-md bg-red-50 p-4">
-                <p className="text-sm text-red-800">{error}</p>
+                <p className="text-sm text-red-800">{getErrorMessage(error)}</p>
               </div>
             )}
 
