@@ -24,7 +24,7 @@ datasource db {
 ```
 
 **Pour le déploiement Vercel:**
-- Voir [VERCEL_DEPLOYMENT.md](/VERCEL_DEPLOYMENT.md) pour le guide complet
+- Voir [VERCEL_DEPLOYMENT.md](/dev_doc/VERCEL_DEPLOYMENT2.md) pour le guide complet
 - Utiliser Vercel Postgres (powered by Neon)
 - Connection string automatiquement configurée via `POSTGRES_PRISMA_URL`
 
@@ -642,4 +642,4 @@ await prisma.$transaction([
 - [PostgreSQL Documentation](https://www.postgresql.org/docs/)
 - [Prisma Migrate](https://www.prisma.io/docs/concepts/components/prisma-migrate)
 - [Vercel Postgres](https://vercel.com/docs/storage/vercel-postgres)
-- [VERCEL_DEPLOYMENT.md](/VERCEL_DEPLOYMENT.md) - Guide de déploiement complet
+- [VERCEL_DEPLOYMENT.md](/dev_doc/VERCEL_DEPLOYMENT2.md) - Guide de déploiement complet

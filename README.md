@@ -77,7 +77,7 @@ npm run dev
 4. Consulter les suggestions générées automatiquement
 5. Générer le résumé final
 
-📖 **Documentation complète** : Voir [UPLOAD_FEATURE.md](UPLOAD_FEATURE.md)
+📖 **Documentation complète** : Voir [UPLOAD_FEATURE.md](dev_doc/UPLOAD_FEATURE.md)
 
 ### Navigation
 

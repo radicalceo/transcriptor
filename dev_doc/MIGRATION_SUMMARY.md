@@ -113,8 +113,8 @@ DATABASE_URL="postgresql://localhost:5432/transcriptor"
 
 For detailed information, see:
 
-- **[VERCEL_DEPLOYMENT.md](VERCEL_DEPLOYMENT.md)** - Complete deployment guide with troubleshooting
-- **[doc/guidelines/database.md](doc/guidelines/database.md)** - Database usage guidelines
+- **[VERCEL_DEPLOYMENT.md](VERCEL_DEPLOYMENT2.md)** - Complete deployment guide with troubleshooting
+- **[doc/guidelines/database.md](../doc/guidelines/database.md)** - Database usage guidelines
 
 ## ⚠️ Important Notes
 
@@ -169,4 +169,4 @@ Your app is now Vercel-compatible with PostgreSQL! Follow the steps above to dep
 For questions or issues, refer to:
 - [Vercel Documentation](https://vercel.com/docs)
 - [Prisma Documentation](https://www.prisma.io/docs)
-- [VERCEL_DEPLOYMENT.md](VERCEL_DEPLOYMENT.md)
+- [VERCEL_DEPLOYMENT.md](VERCEL_DEPLOYMENT2.md)

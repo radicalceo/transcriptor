@@ -175,9 +175,9 @@ Toutes les APIs externes sont mockées pour :
 ## 📚 Ressources
 
 - [Documentation Playwright](https://playwright.dev/)
-- [Guide complet des tests](./e2e/README.md)
-- [Guide rapide](./e2e/QUICKSTART.md)
-- [Guide utilisateur](./TESTING.md)
+- [Guide complet des tests](../e2e/README.md)
+- [Guide rapide](../e2e/QUICKSTART.md)
+- [Guide utilisateur](../TESTING.md)
 
 ## ✨ Prochaines étapes
 
