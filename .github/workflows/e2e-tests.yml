@@ -11,6 +11,21 @@ jobs:
     timeout-minutes: 60
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -30,13 +45,26 @@ jobs:
       - name: Setup environment
         run: |
           cp .env.example .env.local || echo "No .env.example file"
-          # Ajouter ici toute configuration nécessaire
+          echo "DATABASE_URL=postgresql://test_user:test_password@localhost:5432/test_db" >> .env.local
+          echo "NEXTAUTH_URL=http://localhost:3000" >> .env.local
+          echo "NEXTAUTH_SECRET=test-secret-for-e2e-testing-only" >> .env.local
+          # Ajouter les autres variables nécessaires pour les tests
+          echo "ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}" >> .env.local
+          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env.local
+          echo "BLOB_READ_WRITE_TOKEN=${{ secrets.BLOB_READ_WRITE_TOKEN }}" >> .env.local
+
+      - name: Run database migrations
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
 
       - name: Build application
         run: npm run build
 
       - name: Run E2E tests
         run: npm run test:e2e
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
 
       - name: Upload test results
         if: always()
