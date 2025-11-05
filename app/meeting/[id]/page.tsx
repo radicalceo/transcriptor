@@ -264,16 +264,22 @@ export default function MeetingPage() {
           }
 
           recognition.onerror = (event: any) => {
-            console.log(`🔊 Speech recognition error: ${event.error}`)
-
             // Ignorer l'erreur "aborted" qui est normale lors de l'arrêt
             if (event.error === 'aborted') {
               return
             }
 
-            // Pour "no-speech", on log mais on laisse le mécanisme onend redémarrer
+            // Pour "no-speech", on log en mode silencieux et on laisse le mécanisme onend redémarrer
             if (event.error === 'no-speech') {
-              console.log('⏸️ No speech detected, will auto-restart via onend')
+              if (process.env.NODE_ENV === 'development') {
+                console.log('⏸️ No speech detected, will auto-restart')
+              }
+              return
+            }
+
+            // Pour "network", c'est souvent temporaire
+            if (event.error === 'network') {
+              console.warn('⚠️ Network error in speech recognition, will retry')
               return
             }
 
@@ -284,7 +290,9 @@ export default function MeetingPage() {
             if (isRecordingRef.current && event.error !== 'aborted') {
               setTimeout(() => {
                 if (isRecordingRef.current && recognitionRef.current) {
-                  console.log('🔄 Restarting after error...')
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log('🔄 Restarting after error...')
+                  }
                   try {
                     recognition.start()
                   } catch (error) {
@@ -297,17 +305,18 @@ export default function MeetingPage() {
 
           // Redémarrer automatiquement la reconnaissance si elle s'arrête
           recognition.onend = () => {
-            console.log('🏁 Speech recognition ended')
-
             // Si isRecordingRef est encore true, c'est que l'utilisateur n'a pas arrêté manuellement
             // Donc on redémarre automatiquement, mais avec une limite pour éviter les boucles
             if (isRecordingRef.current && recognitionRef.current) {
               const now = Date.now()
               const timeSinceLastRestart = now - lastSpeechRestartRef.current
 
-              // Ne redémarrer que si ça fait plus d'1 seconde depuis le dernier redémarrage
-              if (timeSinceLastRestart > 1000) {
-                console.log('🔄 Speech recognition stopped unexpectedly, restarting...')
+              // Ne redémarrer que si ça fait plus de 500ms depuis le dernier redémarrage
+              if (timeSinceLastRestart > 500) {
+                // Log silencieux sauf si debug
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('🔄 Auto-restarting speech recognition...')
+                }
                 lastSpeechRestartRef.current = now
                 try {
                   recognition.start()
@@ -315,7 +324,17 @@ export default function MeetingPage() {
                   console.error('Error restarting recognition:', error)
                 }
               } else {
-                console.warn('⚠️ Speech recognition restarting too frequently, skipping restart')
+                console.warn('⚠️ Speech recognition restarting too frequently, throttling...')
+                // Attendre un peu plus avant de redémarrer
+                setTimeout(() => {
+                  if (isRecordingRef.current && recognitionRef.current) {
+                    try {
+                      recognition.start()
+                    } catch (error) {
+                      console.error('Error restarting recognition after throttle:', error)
+                    }
+                  }
+                }, 1000)
               }
             }
           }
