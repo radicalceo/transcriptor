@@ -70,8 +70,8 @@ export async function PUT(
           decisions: JSON.parse(updatedMeeting.decisions),
           actions: JSON.parse(updatedMeeting.actions),
         },
-        summary: JSON.parse(updatedMeeting.summary),
-        duration: updatedMeeting.duration,
+        summary: updatedMeeting.summary ? JSON.parse(updatedMeeting.summary) : undefined,
+        duration: updatedMeeting.duration ?? undefined,
         createdAt: updatedMeeting.createdAt,
       },
     })

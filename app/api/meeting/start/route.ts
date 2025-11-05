@@ -19,6 +19,7 @@ export async function POST() {
     const meeting = await prisma.meeting.create({
       data: {
         status: 'active',
+        type: 'live',
         title: null,
         transcript: '[]',
         transcriptSegments: '[]',

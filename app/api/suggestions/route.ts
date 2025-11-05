@@ -34,7 +34,7 @@ export async function POST(request: Request) {
       // Convert database meeting to in-memory format
       meeting = {
         id: dbMeeting.id,
-        title: dbMeeting.title,
+        title: dbMeeting.title ?? undefined,
         transcript: JSON.parse(dbMeeting.transcript),
         transcriptSegments: JSON.parse(dbMeeting.transcriptSegments),
         suggestions: {
@@ -44,35 +44,36 @@ export async function POST(request: Request) {
         },
         createdAt: dbMeeting.createdAt.toISOString(),
         updatedAt: dbMeeting.updatedAt.toISOString(),
-        status: dbMeeting.status,
-        type: dbMeeting.type,
-        duration: dbMeeting.duration,
+        status: dbMeeting.status as 'active' | 'processing' | 'completed',
+        type: dbMeeting.type as 'live' | 'upload',
+        duration: dbMeeting.duration ?? undefined,
       }
 
       // Re-add to memory store or sync transcript from DB
-      const existingMeeting = meetingStore.get(meeting.id)
+      const dbMeetingData = meeting // Capture the meeting from DB to avoid type issues
+      const existingMeeting = meetingStore.get(dbMeetingData.id)
       if (!existingMeeting) {
         // Meeting not in memory, reload from DB
         console.log('DEBUG - Meeting not in memory, reloading from DB')
-        meetingStore.create(meeting.id, meeting.type, meeting.title || undefined)
-        if (meeting.transcript.length > 0) {
-          meeting.transcript.forEach(text => meetingStore.addTranscript(meeting.id, text))
+        meetingStore.create(dbMeetingData.id, dbMeetingData.type, dbMeetingData.title || undefined)
+        if (dbMeetingData.transcript.length > 0) {
+          dbMeetingData.transcript.forEach(text => meetingStore.addTranscript(dbMeetingData.id, text))
         }
-        meetingStore.updateSuggestions(meeting.id, meeting.suggestions)
+        meetingStore.updateSuggestions(dbMeetingData.id, dbMeetingData.suggestions)
         // Use reloaded meeting from memory
-        meeting = meetingStore.get(meeting.id)!
+        meeting = meetingStore.get(dbMeetingData.id)!
       } else {
         // Meeting exists in memory, but sync transcript from DB if memory is empty
         console.log('DEBUG - Meeting found in memory')
         console.log('DEBUG - Memory transcript length:', existingMeeting.transcript.length)
-        console.log('DEBUG - DB transcript length:', meeting.transcript.length)
+        console.log('DEBUG - DB transcript length:', dbMeetingData.transcript.length)
 
-        if (existingMeeting.transcript.length === 0 && meeting.transcript.length > 0) {
+        if (existingMeeting.transcript.length === 0 && dbMeetingData.transcript.length > 0) {
           console.log('DEBUG - Syncing transcript from DB to memory')
-          meeting.transcript.forEach(text => meetingStore.addTranscript(meeting.id, text))
+          dbMeetingData.transcript.forEach(text => meetingStore.addTranscript(dbMeetingData.id, text))
         }
         // Use memory version (now synced)
-        meeting = meetingStore.get(meeting.id)!
+        meeting = meetingStore.get(dbMeetingData.id)!
       }
     }
 

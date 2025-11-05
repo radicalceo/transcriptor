@@ -210,7 +210,7 @@ export default function SummaryPage() {
 
     const topicsText = isNewFormat
       ? (meeting.summary.topics as TopicDetail[]).map((t) => `### ${t.title}\n${t.summary}`).join('\n\n')
-      : (meeting.summary.topics as string[]).map((t) => `- ${t}`).join('\n')
+      : (meeting.summary.topics as unknown as string[]).map((t) => `- ${t}`).join('\n')
 
     const text = `# Résumé de réunion
 
@@ -281,9 +281,7 @@ ${
             Résumé non disponible
           </p>
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-500">
-            {meeting?.status === 'error'
-              ? 'Une erreur est survenue lors de la génération du résumé'
-              : 'Le meeting n\'a pas encore de résumé'}
+            Le meeting n&apos;a pas encore de résumé
           </p>
           <button
             onClick={() => router.push('/')}
@@ -689,25 +687,25 @@ ${
                       </>
                     ) : (
                       <>
-                        {(summary.topics as string[]).map((topic, index) => (
+                        {(summary.topics as unknown as string[]).map((topic, index) => (
                           <div key={index} className="flex gap-2">
                             <input
                               type="text"
                               value={topic}
                               onChange={(e) => {
-                                const newTopics = [...(summary.topics as string[])]
+                                const newTopics = [...(summary.topics as unknown as string[])]
                                 newTopics[index] = e.target.value
                                 setEditedSummary((prev) =>
-                                  prev ? { ...prev, topics: newTopics } : null
+                                  prev ? { ...prev, topics: newTopics as unknown as TopicDetail[] } : null
                                 )
                               }}
                               className="flex-1 p-2 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
                             />
                             <button
                               onClick={() => {
-                                const newTopics = (summary.topics as string[]).filter((_, i) => i !== index)
+                                const newTopics = (summary.topics as unknown as string[]).filter((_, i) => i !== index)
                                 setEditedSummary((prev) =>
-                                  prev ? { ...prev, topics: newTopics } : null
+                                  prev ? { ...prev, topics: newTopics as unknown as TopicDetail[] } : null
                                 )
                               }}
                               className="px-2 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-sm"
@@ -718,9 +716,9 @@ ${
                         ))}
                         <button
                           onClick={() => {
-                            const newTopics = [...(summary.topics as string[]), '']
+                            const newTopics = [...(summary.topics as unknown as string[]), '']
                             setEditedSummary((prev) =>
-                              prev ? { ...prev, topics: newTopics } : null
+                              prev ? { ...prev, topics: newTopics as unknown as TopicDetail[] } : null
                             )
                           }}
                           className="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded text-sm"
@@ -745,7 +743,7 @@ ${
                       ))
                     ) : (
                       <ul className="space-y-1">
-                        {(summary.topics as string[]).map((topic, index) => (
+                        {(summary.topics as unknown as string[]).map((topic, index) => (
                           <li
                             key={index}
                             className="flex items-start gap-2 text-gray-700 dark:text-gray-300 text-sm"

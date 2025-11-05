@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { writeFile, unlink } from 'fs/promises'
 import { join } from 'path'
 import { prisma } from '@/lib/prisma'
+import { requireAuth } from '@/lib/session'
 import {
   transcribeAudio,
   validateAudioFile,
@@ -12,6 +13,17 @@ export async function POST(request: Request) {
   let tempFilePath: string | null = null
 
   try {
+    // Get authenticated user
+    let user
+    try {
+      user = await requireAuth()
+    } catch (error) {
+      return NextResponse.json(
+        { success: false, error: 'Non authentifié' },
+        { status: 401 }
+      )
+    }
+
     // Vérifier que la clé OpenAI est configurée
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json(
@@ -51,12 +63,14 @@ export async function POST(request: Request) {
     const meeting = await prisma.meeting.create({
       data: {
         status: 'processing',
+        type: 'upload',
         title: file.name,
         transcript: '[]',
         transcriptSegments: '[]',
         topics: '[]',
         decisions: '[]',
         actions: '[]',
+        userId: user.id,
       },
     })
 

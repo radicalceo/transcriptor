@@ -96,7 +96,7 @@ export function summaryToHtml(summary: Summary, meetingTitle?: string, meetingDa
     } else {
       sections.push('<h2>Grands sujets abordés</h2>')
       sections.push('<ul>')
-      ;(summary.topics as string[]).forEach(topic => {
+      ;(summary.topics as unknown as string[]).forEach(topic => {
         sections.push(`<li>${escapeHtml(topic)}</li>`)
       })
       sections.push('</ul>')

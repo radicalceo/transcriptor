@@ -33,7 +33,7 @@ export async function POST(request: Request) {
       // Convert database meeting to in-memory format
       meeting = {
         id: dbMeeting.id,
-        title: dbMeeting.title,
+        title: dbMeeting.title ?? undefined,
         transcript: JSON.parse(dbMeeting.transcript),
         transcriptSegments: JSON.parse(dbMeeting.transcriptSegments),
         suggestions: {
@@ -41,12 +41,12 @@ export async function POST(request: Request) {
           decisions: JSON.parse(dbMeeting.decisions),
           actions: JSON.parse(dbMeeting.actions),
         },
-        notes: dbMeeting.notes,
+        notes: dbMeeting.notes ?? undefined,
         createdAt: dbMeeting.createdAt.toISOString(),
         updatedAt: dbMeeting.updatedAt.toISOString(),
-        status: dbMeeting.status,
-        type: dbMeeting.type,
-        duration: dbMeeting.duration,
+        status: dbMeeting.status as 'active' | 'processing' | 'completed',
+        type: dbMeeting.type as 'live' | 'upload',
+        duration: dbMeeting.duration ?? undefined,
       }
     }
 
