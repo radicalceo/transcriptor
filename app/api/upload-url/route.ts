@@ -1,3 +1,4 @@
+import { handleUpload, type HandleUploadBody } from '@vercel/blob/client'
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/session'
 
@@ -7,7 +8,7 @@ export const runtime = 'nodejs'
  * Génère une URL de upload direct client-side vers Vercel Blob
  * Cela contourne complètement la limite de 4.5MB des API routes
  */
-export async function POST(request: Request) {
+export async function POST(request: Request): Promise<NextResponse> {
   try {
     // Get authenticated user
     let user
@@ -30,41 +31,34 @@ export async function POST(request: Request) {
       )
     }
 
-    const { filename } = await request.json()
+    const body = (await request.json()) as HandleUploadBody
 
-    if (!filename) {
-      return NextResponse.json(
-        { success: false, error: 'Filename is required' },
-        { status: 400 }
-      )
-    }
-
-    // Générer une URL de upload signée
-    const response = await fetch(
-      `https://blob.vercel-storage.com/upload?filename=${encodeURIComponent(filename)}`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}`,
-        },
-        body: JSON.stringify({
-          access: 'public',
+    const jsonResponse = await handleUpload({
+      body,
+      request,
+      onBeforeGenerateToken: async (pathname) => {
+        // Validation côté serveur
+        return {
+          allowedContentTypes: [
+            'audio/mpeg',
+            'audio/mp3',
+            'audio/mp4',
+            'audio/m4a',
+            'audio/wav',
+            'audio/webm',
+            'video/mp4',
+            'video/webm',
+          ],
+          maximumSizeInBytes: 200 * 1024 * 1024, // 200 MB
           addRandomSuffix: true,
-        }),
-      }
-    )
-
-    if (!response.ok) {
-      throw new Error(`Failed to get upload URL: ${response.statusText}`)
-    }
-
-    const data = await response.json()
-
-    return NextResponse.json({
-      success: true,
-      uploadUrl: data.url,
-      blobUrl: data.downloadUrl,
+        }
+      },
+      onUploadCompleted: async ({ blob, tokenPayload }) => {
+        console.log('✅ Blob uploaded:', blob.url)
+      },
     })
+
+    return NextResponse.json(jsonResponse)
   } catch (error: any) {
     console.error('Error getting upload URL:', error)
     return NextResponse.json(

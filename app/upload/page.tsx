@@ -66,50 +66,26 @@ export default function UploadPage() {
     setError('')
 
     try {
-      // Étape 1: Obtenir une URL de upload signée
-      console.log('🔑 Getting upload URL...')
-      const urlResponse = await fetch('/api/upload-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename: selectedFile.name }),
+      console.log('📤 Uploading to Blob Storage...')
+
+      // Import du SDK client-side
+      const { upload } = await import('@vercel/blob/client')
+
+      // Upload direct vers Blob Storage avec le SDK
+      const blob = await upload(selectedFile.name, selectedFile, {
+        access: 'public',
+        handleUploadUrl: '/api/upload-url',
       })
 
-      if (!urlResponse.ok) {
-        // Si Blob n'est pas configuré, fallback sur l'ancien système
-        if (urlResponse.status === 500) {
-          console.log('⚠️ Blob not configured, using legacy upload (max 25MB)...')
-          return await handleLegacyUpload()
-        }
+      console.log('✅ File uploaded to Blob:', blob.url)
 
-        const errorText = await urlResponse.text()
-        throw new Error(`Failed to get upload URL: ${errorText}`)
-      }
-
-      const { uploadUrl, blobUrl } = await urlResponse.json()
-
-      // Étape 2: Upload direct vers Blob Storage (contourne la limite de 4.5MB)
-      console.log('📤 Uploading directly to Blob Storage...')
-      const uploadResponse = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': selectedFile.type || 'application/octet-stream',
-        },
-        body: selectedFile,
-      })
-
-      if (!uploadResponse.ok) {
-        throw new Error(`Blob upload failed: ${uploadResponse.statusText}`)
-      }
-
-      console.log('✅ File uploaded to Blob')
-
-      // Étape 3: Notifier le serveur pour commencer le traitement
+      // Étape 2: Notifier le serveur pour commencer le traitement
       console.log('🎙️ Starting transcription...')
       const processResponse = await fetch('/api/process-uploaded', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          blobUrl,
+          blobUrl: blob.url,
           filename: selectedFile.name,
           fileSize: selectedFile.size,
         }),
@@ -131,6 +107,13 @@ export default function UploadPage() {
       }
     } catch (err: any) {
       console.error('Upload error:', err)
+
+      // Fallback sur l'ancien système si Blob échoue
+      if (err.message?.includes('Blob') || err.message?.includes('BLOB_READ_WRITE_TOKEN')) {
+        console.log('⚠️ Blob upload failed, trying legacy upload (max 25MB)...')
+        return await handleLegacyUpload()
+      }
+
       setError(err.message || 'Upload failed')
       setIsUploading(false)
     }
