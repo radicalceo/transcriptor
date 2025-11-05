@@ -56,8 +56,8 @@ export default function MeetingPage() {
           if (data.meeting.status === 'processing') {
             setIsUploadedFile(true)
           } else if (data.meeting.status === 'active') {
-            // Démarrer directement avec le microphone (plus fiable)
-            setAudioMode('microphone')
+            // Afficher le modal de sélection du mode audio
+            setShowAudioModeSelector(true)
           }
         }
       } catch (error) {
@@ -926,11 +926,11 @@ export default function MeetingPage() {
 
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Transcript panel - 50% */}
-        <div className="w-1/2 flex flex-col bg-gray-50 dark:bg-gray-900">
+        {/* Transcript panel - plein écran si fichier uploadé, sinon 50% */}
+        <div className={`${isUploadedFile ? 'w-full' : 'w-1/2'} flex flex-col bg-gray-50 dark:bg-gray-900`}>
           <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Transcription en direct
+              {isUploadedFile || meeting.status === 'completed' ? 'Transcription' : 'Transcription en direct'}
             </h2>
             {meeting.transcriptSegments && meeting.transcriptSegments.length > 0 && (
               <button
@@ -1049,20 +1049,22 @@ export default function MeetingPage() {
           </div>
         </div>
 
-        {/* Notes panel - 50% */}
-        <div className="w-1/2 flex flex-col bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700">
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Notes
-            </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              Prenez des notes pendant la réunion
-            </p>
+        {/* Notes panel - 50% (masqué si fichier uploadé) */}
+        {!isUploadedFile && (
+          <div className="w-1/2 flex flex-col bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700">
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Notes
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Prenez des notes pendant la réunion
+              </p>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              <RichTextEditor value={notes} onChange={handleNotesChange} />
+            </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-4">
-            <RichTextEditor value={notes} onChange={handleNotesChange} />
-          </div>
-        </div>
+        )}
       </div>
     </div>
   )
