@@ -9,6 +9,10 @@ import {
   estimateTranscriptionTime,
 } from '@/lib/services/whisperService'
 
+// Augmenter la limite pour cette route
+export const runtime = 'nodejs'
+export const maxDuration = 300 // 5 minutes
+
 export async function POST(request: Request) {
   let tempFilePath: string | null = null
 

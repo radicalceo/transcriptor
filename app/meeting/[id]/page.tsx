@@ -24,6 +24,7 @@ export default function MeetingPage() {
   const [showDetailedSegments, setShowDetailedSegments] = useState(false)
   const [showAudioModeSelector, setShowAudioModeSelector] = useState(false)
   const [audioMode, setAudioMode] = useState<'microphone' | 'tab-and-mic' | null>(null)
+  const [isRequestingScreenShare, setIsRequestingScreenShare] = useState(false)
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const recognitionRef = useRef<any>(null)
@@ -126,19 +127,18 @@ export default function MeetingPage() {
           // Mode visio: capturer aussi l'audio de l'onglet
           try {
             console.log('🖥️ Requesting tab audio capture...')
+            setIsRequestingScreenShare(true)
 
             const tabStream = await navigator.mediaDevices.getDisplayMedia({
-              video: {
-                displaySurface: 'browser', // Privilégier les onglets
-              },
+              video: true, // Obligatoire dans la plupart des navigateurs
               audio: {
                 echoCancellation: false,
                 noiseSuppression: false,
                 autoGainControl: false,
               },
-              preferCurrentTab: false,
-            } as any) // Cast en any car preferCurrentTab n'est pas standard
+            })
 
+            setIsRequestingScreenShare(false)
             console.log('🖥️ Tab stream obtained')
             console.log(`📊 Video tracks: ${tabStream.getVideoTracks().length}`)
             console.log(`📊 Audio tracks: ${tabStream.getAudioTracks().length}`)
@@ -183,12 +183,20 @@ export default function MeetingPage() {
               }
             }
           } catch (error: any) {
+            setIsRequestingScreenShare(false)
             console.error('Error capturing tab audio:', error)
 
             // Gérer le cas où l'utilisateur annule
             if (error.name === 'NotAllowedError') {
               console.log('User cancelled screen share')
-              alert('Partage d\'écran annulé. Seul le microphone sera utilisé.')
+              // Arrêter le micro
+              micStream.getTracks().forEach(track => track.stop())
+              // Réinitialiser le mode audio pour permettre une nouvelle sélection
+              setAudioMode(null)
+              setShowAudioModeSelector(true)
+              return // Arrêter ici, ne pas continuer l'enregistrement
+            } else if (error.name === 'NotFoundError') {
+              alert('Impossible de trouver un onglet avec audio. Assurez-vous que l\'onglet sélectionné joue de l\'audio.')
             } else {
               const errorMsg = error.message || 'Erreur inconnue'
               alert(`Impossible de capturer l'audio de l'onglet: ${errorMsg}\n\nSeul le microphone sera utilisé.`)
@@ -742,6 +750,42 @@ export default function MeetingPage() {
                 </div>
               </div>
             </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Afficher un indicateur pendant la sélection de partage d'écran
+  if (isRequestingScreenShare) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+        <div className="text-center p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md">
+          <div className="animate-pulse mb-6">
+            <svg
+              className="w-24 h-24 mx-auto text-indigo-600 dark:text-indigo-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+              />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+            En attente de sélection
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            Veuillez sélectionner un onglet à partager dans la fenêtre qui vient de s'ouvrir.
+          </p>
+          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+            <p className="text-sm text-blue-800 dark:text-blue-300">
+              💡 N'oubliez pas de cocher <strong>"Partager l'audio"</strong> pour capturer le son de la visioconférence.
+            </p>
           </div>
         </div>
       </div>
