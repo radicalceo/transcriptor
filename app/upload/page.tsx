@@ -74,6 +74,24 @@ export default function UploadPage() {
         body: formData,
       })
 
+      // Vérifier si la réponse est OK avant de parser le JSON
+      if (!response.ok) {
+        // Essayer de lire le texte de l'erreur
+        const errorText = await response.text()
+        console.error('Upload failed with status:', response.status, errorText)
+
+        // Essayer de parser en JSON si possible
+        try {
+          const errorData = JSON.parse(errorText)
+          setError(errorData.error || `Upload failed with status ${response.status}`)
+        } catch {
+          // Si ce n'est pas du JSON, afficher le texte brut
+          setError(`Upload failed: ${errorText.substring(0, 200)}`)
+        }
+        setIsUploading(false)
+        return
+      }
+
       const data = await response.json()
 
       if (data.success) {

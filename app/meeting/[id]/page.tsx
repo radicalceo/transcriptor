@@ -125,10 +125,19 @@ export default function MeetingPage() {
         if (audioMode === 'tab-and-mic') {
           // Mode visio: capturer aussi l'audio de l'onglet
           try {
+            console.log('🖥️ Requesting tab audio capture...')
+
             const tabStream = await navigator.mediaDevices.getDisplayMedia({
-              video: true, // Obligatoire pour la plupart des navigateurs
-              audio: true, // Simplifier les contraintes
-            })
+              video: {
+                displaySurface: 'browser', // Privilégier les onglets
+              },
+              audio: {
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl: false,
+              },
+              preferCurrentTab: false,
+            } as any) // Cast en any car preferCurrentTab n'est pas standard
 
             console.log('🖥️ Tab stream obtained')
             console.log(`📊 Video tracks: ${tabStream.getVideoTracks().length}`)
@@ -144,7 +153,8 @@ export default function MeetingPage() {
 
             // Vérifier qu'on a bien de l'audio
             if (tabStream.getAudioTracks().length === 0) {
-              throw new Error('Aucune piste audio dans le partage. Assurez-vous de cocher "Partager l\'audio".')
+              console.warn('⚠️ No audio track in shared tab')
+              throw new Error('Aucune piste audio dans le partage. Assurez-vous de cocher "Partager l\'audio" dans la fenêtre de sélection.')
             }
 
             // Mixer les deux flux avec Web Audio API
@@ -165,14 +175,25 @@ export default function MeetingPage() {
             console.log('🎵 Audio streams mixed successfully')
 
             // Détecter si l'utilisateur arrête le partage d'écran
-            tabStream.getAudioTracks()[0].onended = () => {
-              console.log('⚠️ Tab sharing stopped by user')
-              alert('Le partage audio de l\'onglet a été arrêté. Seul le microphone sera enregistré.')
+            const firstAudioTrack = tabStream.getAudioTracks()[0]
+            if (firstAudioTrack) {
+              firstAudioTrack.onended = () => {
+                console.log('⚠️ Tab sharing stopped by user')
+                alert('Le partage audio de l\'onglet a été arrêté. Seul le microphone sera enregistré.')
+              }
             }
           } catch (error: any) {
             console.error('Error capturing tab audio:', error)
-            const errorMsg = error.message || 'Erreur inconnue'
-            alert(`Impossible de capturer l'audio de l'onglet: ${errorMsg}\n\nSeul le microphone sera utilisé.`)
+
+            // Gérer le cas où l'utilisateur annule
+            if (error.name === 'NotAllowedError') {
+              console.log('User cancelled screen share')
+              alert('Partage d\'écran annulé. Seul le microphone sera utilisé.')
+            } else {
+              const errorMsg = error.message || 'Erreur inconnue'
+              alert(`Impossible de capturer l'audio de l'onglet: ${errorMsg}\n\nSeul le microphone sera utilisé.`)
+            }
+
             combinedStream = micStream
           }
         } else {

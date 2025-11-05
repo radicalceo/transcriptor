@@ -1,6 +1,17 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy initialization to avoid build errors when RESEND_API_KEY is not set
+let resend: Resend | null = null;
+
+function getResendClient(): Resend {
+  if (!resend) {
+    if (!process.env.RESEND_API_KEY) {
+      throw new Error("RESEND_API_KEY is not configured");
+    }
+    resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resend;
+}
 
 const APP_URL = process.env.NEXTAUTH_URL || "http://localhost:3000";
 
@@ -32,7 +43,8 @@ export async function sendNewAccountNotification({
     const signupMethodText =
       signupMethod === "google" ? "Google OAuth" : "Email/Mot de passe";
 
-    const { data, error } = await resend.emails.send({
+    const client = getResendClient();
+    const { data, error } = await client.emails.send({
       from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
       to: adminEmail,
       subject: `Nouveau compte créé - ${userEmail}`,
@@ -80,7 +92,8 @@ export async function sendPasswordResetEmail({
 
     const resetUrl = `${APP_URL}/auth/reset-password?token=${resetToken}`;
 
-    const { data, error } = await resend.emails.send({
+    const client = getResendClient();
+    const { data, error } = await client.emails.send({
       from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
       to: userEmail,
       subject: "Réinitialisation de votre mot de passe - Transcriptor",
