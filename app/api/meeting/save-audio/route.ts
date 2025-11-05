@@ -46,7 +46,8 @@ export async function POST(request: NextRequest) {
     // Upload vers Vercel Blob Storage
     const blob = await put(fileName, audioChunk, {
       access: 'public',
-      addRandomSuffix: false, // Garder le même nom pour les chunks partiels
+      addRandomSuffix: isPartial ? false : true, // Suffix pour fichier final uniquement
+      allowOverwrite: true, // Permettre l'écrasement des chunks partiels
     })
 
     console.log(`✅ Audio uploaded to Blob Storage: ${blob.url}`)

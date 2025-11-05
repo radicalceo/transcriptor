@@ -66,39 +66,93 @@ export default function UploadPage() {
     setError('')
 
     try {
-      const formData = new FormData()
-      formData.append('file', selectedFile)
+      // Étape 1: Obtenir une URL de upload signée
+      console.log('🔑 Getting upload URL...')
+      const urlResponse = await fetch('/api/upload-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: selectedFile.name }),
+      })
 
-      // Essayer d'abord avec Blob Storage (pour gros fichiers)
-      // Si ça échoue, on essaiera /api/upload en fallback
-      let uploadEndpoint = '/api/upload-blob'
-      let response = await fetch(uploadEndpoint, {
+      if (!urlResponse.ok) {
+        // Si Blob n'est pas configuré, fallback sur l'ancien système
+        if (urlResponse.status === 500) {
+          console.log('⚠️ Blob not configured, using legacy upload (max 25MB)...')
+          return await handleLegacyUpload()
+        }
+
+        const errorText = await urlResponse.text()
+        throw new Error(`Failed to get upload URL: ${errorText}`)
+      }
+
+      const { uploadUrl, blobUrl } = await urlResponse.json()
+
+      // Étape 2: Upload direct vers Blob Storage (contourne la limite de 4.5MB)
+      console.log('📤 Uploading directly to Blob Storage...')
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': selectedFile.type || 'application/octet-stream',
+        },
+        body: selectedFile,
+      })
+
+      if (!uploadResponse.ok) {
+        throw new Error(`Blob upload failed: ${uploadResponse.statusText}`)
+      }
+
+      console.log('✅ File uploaded to Blob')
+
+      // Étape 3: Notifier le serveur pour commencer le traitement
+      console.log('🎙️ Starting transcription...')
+      const processResponse = await fetch('/api/process-uploaded', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          blobUrl,
+          filename: selectedFile.name,
+          fileSize: selectedFile.size,
+        }),
+      })
+
+      if (!processResponse.ok) {
+        const errorText = await processResponse.text()
+        throw new Error(`Processing failed: ${errorText}`)
+      }
+
+      const data = await processResponse.json()
+
+      if (data.success) {
+        // Rediriger vers la page du meeting
+        router.push(`/meeting/${data.meetingId}`)
+      } else {
+        setError(data.error || 'Processing failed')
+        setIsUploading(false)
+      }
+    } catch (err: any) {
+      console.error('Upload error:', err)
+      setError(err.message || 'Upload failed')
+      setIsUploading(false)
+    }
+  }
+
+  // Upload legacy pour fichiers < 25MB si Blob n'est pas configuré
+  const handleLegacyUpload = async () => {
+    try {
+      const formData = new FormData()
+      formData.append('file', selectedFile!)
+
+      const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
       })
 
-      // Si Blob n'est pas configuré ou échoue, fallback sur upload direct
-      if (!response.ok && response.status === 500) {
-        console.log('Blob upload failed, trying direct upload...')
-        uploadEndpoint = '/api/upload'
-        response = await fetch(uploadEndpoint, {
-          method: 'POST',
-          body: formData,
-        })
-      }
-
-      // Vérifier si la réponse est OK avant de parser le JSON
       if (!response.ok) {
-        // Essayer de lire le texte de l'erreur
         const errorText = await response.text()
-        console.error('Upload failed with status:', response.status, errorText)
-
-        // Essayer de parser en JSON si possible
         try {
           const errorData = JSON.parse(errorText)
           setError(errorData.error || `Upload failed with status ${response.status}`)
         } catch {
-          // Si ce n'est pas du JSON, afficher le texte brut
           setError(`Upload failed: ${errorText.substring(0, 200)}`)
         }
         setIsUploading(false)
@@ -108,14 +162,13 @@ export default function UploadPage() {
       const data = await response.json()
 
       if (data.success) {
-        // Rediriger vers la page du meeting
         router.push(`/meeting/${data.meetingId}`)
       } else {
         setError(data.error || 'Upload failed')
         setIsUploading(false)
       }
     } catch (err: any) {
-      console.error('Upload error:', err)
+      console.error('Legacy upload error:', err)
       setError(err.message || 'Upload failed')
       setIsUploading(false)
     }

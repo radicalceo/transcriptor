@@ -56,8 +56,8 @@ export default function MeetingPage() {
           if (data.meeting.status === 'processing') {
             setIsUploadedFile(true)
           } else if (data.meeting.status === 'active') {
-            // Afficher le sélecteur de mode audio pour les nouvelles sessions
-            setShowAudioModeSelector(true)
+            // Démarrer directement avec le microphone (plus fiable)
+            setAudioMode('microphone')
           }
         }
       } catch (error) {
