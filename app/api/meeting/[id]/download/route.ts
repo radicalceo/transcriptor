@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import fs from 'fs/promises'
-import path from 'path'
 
 export async function GET(
   request: NextRequest,
@@ -30,8 +28,20 @@ export async function GET(
       )
     }
 
-    // Vérifier que le fichier existe
-    // Si le chemin est absolu, l'utiliser tel quel, sinon le joindre avec process.cwd()
+    // Check if audioPath is a URL (Vercel Blob) or a local path
+    const isUrl = meeting.audioPath.startsWith('http://') || meeting.audioPath.startsWith('https://')
+
+    if (isUrl) {
+      // Vercel Blob: redirect to the blob URL
+      // The blob URL is already public and downloadable
+      console.log('🔗 Redirecting to Blob Storage URL:', meeting.audioPath)
+      return NextResponse.redirect(meeting.audioPath)
+    }
+
+    // Legacy: local file system (for development/backward compatibility)
+    const fs = await import('fs/promises')
+    const path = await import('path')
+
     const filePath = path.isAbsolute(meeting.audioPath)
       ? meeting.audioPath
       : path.join(process.cwd(), meeting.audioPath)

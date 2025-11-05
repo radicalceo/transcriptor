@@ -224,14 +224,41 @@ export default function MeetingPage() {
           }
 
           recognition.onerror = (event: any) => {
+            console.log(`🔊 Speech recognition error: ${event.error}`)
+
             // Ignorer l'erreur "aborted" qui est normale lors de l'arrêt
-            if (event.error !== 'aborted' && event.error !== 'no-speech') {
-              console.error('Speech recognition error:', event.error)
+            if (event.error === 'aborted') {
+              return
+            }
+
+            // Pour "no-speech", on log mais on laisse le mécanisme onend redémarrer
+            if (event.error === 'no-speech') {
+              console.log('⏸️ No speech detected, will auto-restart via onend')
+              return
+            }
+
+            // Pour les autres erreurs, on log et on tente de redémarrer
+            console.error('❌ Speech recognition error:', event.error)
+
+            // Redémarrer après une erreur (sauf aborted)
+            if (isRecordingRef.current && event.error !== 'aborted') {
+              setTimeout(() => {
+                if (isRecordingRef.current && recognitionRef.current) {
+                  console.log('🔄 Restarting after error...')
+                  try {
+                    recognition.start()
+                  } catch (error) {
+                    console.error('Failed to restart after error:', error)
+                  }
+                }
+              }, 500)
             }
           }
 
           // Redémarrer automatiquement la reconnaissance si elle s'arrête
           recognition.onend = () => {
+            console.log('🏁 Speech recognition ended')
+
             // Si isRecordingRef est encore true, c'est que l'utilisateur n'a pas arrêté manuellement
             // Donc on redémarre automatiquement, mais avec une limite pour éviter les boucles
             if (isRecordingRef.current && recognitionRef.current) {
