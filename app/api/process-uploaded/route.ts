@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/session'
 import { estimateTranscriptionTime } from '@/lib/services/whisperService'
+import { ensureTempDir } from '@/lib/tempDir'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300 // 5 minutes max sur Vercel Pro
@@ -150,15 +151,14 @@ async function processAudioFromBlob(meetingId: string, blobUrl: string) {
     console.log(`✅ Downloaded ${sizeMB.toFixed(2)} MB from Blob`)
 
     // Créer un fichier temporaire pour Whisper
-    const { writeFile, unlink, mkdir } = await import('fs/promises')
+    const { writeFile, unlink } = await import('fs/promises')
     const { join } = await import('path')
     const { transcribeAudio } = await import('@/lib/services/whisperService')
 
-    const tempDir = join(process.cwd(), 'data', 'temp')
-
-    // Créer le dossier temp s'il n'existe pas
-    console.log(`📁 Creating temp directory: ${tempDir}`)
-    await mkdir(tempDir, { recursive: true })
+    // Créer le dossier temp s'il n'existe pas (compatible Vercel)
+    console.log(`📁 Creating temp directory...`)
+    const tempDir = await ensureTempDir()
+    console.log(`✅ Temp directory ready: ${tempDir}`)
 
     // Extract extension from the audio path URL
     const urlWithoutQuery = blobUrl.split('?')[0]

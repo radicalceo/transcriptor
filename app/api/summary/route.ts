@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { meetingStore } from '@/lib/services/meetingStore'
 import { generateFinalSummary } from '@/lib/services/claudeService'
 import { prisma } from '@/lib/prisma'
+import { ensureTempDir } from '@/lib/tempDir'
 
 // Utility function to retry database operations
 async function retryOperation<T>(
@@ -180,12 +181,11 @@ async function generateSummaryAsync(meetingId: string, meeting: any) {
         console.log(`✅ Downloaded audio: ${(buffer.length / (1024 * 1024)).toFixed(2)} MB`)
 
         // Créer un fichier temporaire
-        const { writeFile, unlink, mkdir } = await import('fs/promises')
+        const { writeFile, unlink } = await import('fs/promises')
         const { join } = await import('path')
         const { transcribeAudio } = await import('@/lib/services/whisperService')
 
-        const tempDir = join(process.cwd(), 'data', 'temp')
-        await mkdir(tempDir, { recursive: true })
+        const tempDir = await ensureTempDir()
 
         // Déterminer l'extension depuis l'URL
         // URL format: https://...vercel-storage.com/meeting-id-temp.mp4 ou meeting-id-live-hash.mp4

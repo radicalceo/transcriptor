@@ -6,6 +6,7 @@ import {
   validateAudioFile,
   estimateTranscriptionTime,
 } from '@/lib/services/whisperService'
+import { ensureTempDir } from '@/lib/tempDir'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300 // 5 minutes
@@ -144,7 +145,7 @@ async function processAudioFromBlob(meetingId: string, blobUrl: string) {
     const { join } = await import('path')
     const { transcribeAudio } = await import('@/lib/services/whisperService')
 
-    const tempDir = join(process.cwd(), 'data', 'temp')
+    const tempDir = await ensureTempDir()
     const tempFile = join(tempDir, `${meetingId}-temp.audio`)
 
     await writeFile(tempFile, buffer)
