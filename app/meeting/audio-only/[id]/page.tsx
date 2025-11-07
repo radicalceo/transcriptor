@@ -287,6 +287,7 @@ export default function AudioOnlyMeetingPage() {
         micStreamRef.current = null
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meetingId, meeting?.status]) // Only depend on status, not the whole meeting object
 
   // Save notes before page unload

@@ -367,6 +367,7 @@ export default function ScreenShareMeetingPage() {
         audioContextRef.current = null
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meetingId, meeting?.status])
 
   // Save notes before page unload

@@ -117,7 +117,7 @@ export default function UploadMeetingPage() {
             onClick={() => router.push('/')}
             className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg"
           >
-            Retour à l'accueil
+            Retour à l&apos;accueil
           </button>
         </div>
       </div>
