@@ -3,6 +3,30 @@ import { meetingStore } from '@/lib/services/meetingStore'
 import { generateFinalSummary } from '@/lib/services/claudeService'
 import { prisma } from '@/lib/prisma'
 
+// Utility function to retry database operations
+async function retryOperation<T>(
+  operation: () => Promise<T>,
+  maxRetries = 3,
+  delay = 1000
+): Promise<T> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation()
+    } catch (error: any) {
+      const isLastAttempt = attempt === maxRetries
+      const isRetryableError = error?.code === 'P1001' || error?.message?.includes('database server')
+
+      if (!isRetryableError || isLastAttempt) {
+        throw error
+      }
+
+      console.log(`⚠️ Database connection failed (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms...`)
+      await new Promise(resolve => setTimeout(resolve, delay * attempt))
+    }
+  }
+  throw new Error('Max retries reached')
+}
+
 export async function POST(request: Request) {
   try {
     const { meetingId, async = true } = await request.json()
@@ -50,11 +74,13 @@ export async function POST(request: Request) {
       }
     }
 
-    // Update status to processing first
-    await prisma.meeting.update({
-      where: { id: meetingId },
-      data: { status: 'processing' },
-    })
+    // Update status to processing first with retry
+    await retryOperation(() =>
+      prisma.meeting.update({
+        where: { id: meetingId },
+        data: { status: 'processing' },
+      })
+    )
 
     if (meetingStore.get(meetingId)) {
       meetingStore.updateStatus(meetingId, 'processing')
@@ -124,9 +150,11 @@ async function generateSummaryAsync(meetingId: string, meeting: any) {
     console.log(`🔄 Starting async summary generation for meeting ${meetingId}`)
 
     // IMPORTANT: Si le meeting a un audioPath mais pas de transcription, il faut d'abord transcrire
-    const dbMeeting = await prisma.meeting.findUnique({
-      where: { id: meetingId },
-    })
+    const dbMeeting = await retryOperation(() =>
+      prisma.meeting.findUnique({
+        where: { id: meetingId },
+      })
+    )
 
     if (!dbMeeting) {
       throw new Error('Meeting not found in database')
@@ -189,13 +217,15 @@ async function generateSummaryAsync(meetingId: string, meeting: any) {
           transcriptSegments = segments
 
           // Sauvegarder en base
-          await prisma.meeting.update({
-            where: { id: meetingId },
-            data: {
-              transcript: JSON.stringify(transcript),
-              transcriptSegments: JSON.stringify(transcriptSegments),
-            },
-          })
+          await retryOperation(() =>
+            prisma.meeting.update({
+              where: { id: meetingId },
+              data: {
+                transcript: JSON.stringify(transcript),
+                transcriptSegments: JSON.stringify(transcriptSegments),
+              },
+            })
+          )
 
           console.log(`💾 Transcript saved to database`)
         } finally {
@@ -220,17 +250,19 @@ async function generateSummaryAsync(meetingId: string, meeting: any) {
       meeting.notes || undefined
     )
 
-    // Save summary to database
-    await prisma.meeting.update({
-      where: { id: meetingId },
-      data: {
-        summary: JSON.stringify(summary),
-        topics: JSON.stringify(summary.topics.slice(0, 8)),
-        decisions: JSON.stringify(summary.decisions.slice(0, 10)),
-        actions: JSON.stringify(summary.actions.slice(0, 15)),
-        status: 'completed',
-      },
-    })
+    // Save summary to database with retry
+    await retryOperation(() =>
+      prisma.meeting.update({
+        where: { id: meetingId },
+        data: {
+          summary: JSON.stringify(summary),
+          topics: JSON.stringify(summary.topics.slice(0, 8)),
+          decisions: JSON.stringify(summary.decisions.slice(0, 10)),
+          actions: JSON.stringify(summary.actions.slice(0, 15)),
+          status: 'completed',
+        },
+      })
+    )
 
     // Also update in memory store if it exists
     if (meetingStore.get(meetingId)) {
@@ -241,11 +273,13 @@ async function generateSummaryAsync(meetingId: string, meeting: any) {
   } catch (error) {
     console.error(`❌ Async summary generation failed for meeting ${meetingId}:`, error)
 
-    // Update status to error in database
-    await prisma.meeting.update({
-      where: { id: meetingId },
-      data: { status: 'completed' }, // On met completed même si erreur pour éviter de bloquer
-    })
+    // Update status to error in database with retry
+    await retryOperation(() =>
+      prisma.meeting.update({
+        where: { id: meetingId },
+        data: { status: 'completed' }, // On met completed même si erreur pour éviter de bloquer
+      })
+    ).catch(console.error) // Don't throw if status update fails
 
     throw error
   }
