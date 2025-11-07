@@ -77,15 +77,15 @@ test.describe('Page Summary', () => {
     await expect(page.getByText('Test User')).toBeVisible()
   })
 
-  test('permet de retourner à l\'accueil', async ({ page }) => {
+  test('permet de retourner à l\'historique', async ({ page }) => {
     await page.goto('/summary/test-meeting-id')
     await page.waitForLoadState('networkidle')
 
-    // Cliquer sur le bouton retour
-    await page.getByRole('button', { name: /Retour/i }).click()
+    // Cliquer sur le bouton retour à l'historique
+    await page.getByRole('button', { name: /Retour/i }).first().click()
 
-    // Vérifier la redirection
-    await page.waitForURL('/', { timeout: 5000 })
+    // Vérifier la redirection vers l'historique
+    await page.waitForURL('/history', { timeout: 5000 })
   })
 
   test('affiche un bouton pour modifier le résumé', async ({ page }) => {

@@ -4,7 +4,7 @@ import type { Meeting, Suggestions, Summary, TranscriptSegment } from '@/lib/typ
 const meetings = new Map<string, Meeting>()
 
 export const meetingStore = {
-  create(id: string, type: 'live' | 'upload' = 'live', title?: string): Meeting {
+  create(id: string, type: 'audio-only' | 'screen-share' | 'upload' = 'audio-only', title?: string): Meeting {
     const meeting: Meeting = {
       id,
       title,

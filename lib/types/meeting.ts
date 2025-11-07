@@ -65,7 +65,7 @@ export interface Meeting {
   createdAt: string
   updatedAt?: string // Last update timestamp
   status: 'active' | 'processing' | 'completed'
-  type: 'live' | 'upload' // Track if it was recorded live or uploaded
+  type: 'audio-only' | 'screen-share' | 'upload' // Track the recording method
   duration?: number // Duration in seconds (for uploaded files)
 }
 

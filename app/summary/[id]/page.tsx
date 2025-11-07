@@ -190,14 +190,9 @@ export default function SummaryPage() {
   const handleDownloadAudio = () => {
     if (!meeting?.audioPath) return
 
-    // Télécharger le fichier audio
+    // Ouvrir le fichier audio dans un nouvel onglet
     const downloadUrl = `/api/meeting/${meetingId}/download`
-    const link = document.createElement('a')
-    link.href = downloadUrl
-    link.download = '' // Le nom sera géré par l'API
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    window.open(downloadUrl, '_blank')
   }
 
   const handleCopyToClipboard = () => {
@@ -284,10 +279,10 @@ ${
             Le meeting n&apos;a pas encore de résumé
           </p>
           <button
-            onClick={() => router.push('/')}
+            onClick={() => router.push('/history')}
             className="mt-4 text-indigo-600 hover:text-indigo-700"
           >
-            Retour à l&apos;accueil
+            Retour à l&apos;historique
           </button>
         </div>
       </div>
@@ -308,7 +303,7 @@ ${
         <div className="mb-8">
           <div className="flex items-center justify-between max-w-7xl mx-auto">
             <button
-              onClick={() => router.push('/')}
+              onClick={() => router.push('/history')}
               className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white flex items-center gap-2"
             >
               <svg

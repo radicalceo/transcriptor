@@ -141,10 +141,12 @@ async function transcribeChunk(
  * Transcrit un fichier audio avec Whisper
  * Gère automatiquement le découpage pour les fichiers > 20MB
  * Retourne les segments de transcription avec timestamps
+ * @param onProgress - Callback appelé avec les segments progressifs (pour affichage temps réel)
  */
 export async function transcribeAudio(
   filePath: string,
-  language: string = 'fr'
+  language: string = 'fr',
+  onProgress?: (segments: TranscriptSegment[]) => Promise<void>
 ): Promise<TranscriptSegment[]> {
   try {
     console.log(`📝 Transcribing audio file: ${filePath}`)
@@ -152,7 +154,7 @@ export async function transcribeAudio(
     // Lire le fichier pour vérifier sa taille
     const fileBuffer = readFileSync(filePath)
     const fileSizeMB = fileBuffer.length / (1024 * 1024)
-    const maxChunkSize = 20 * 1024 * 1024 // 20MB pour avoir de la marge
+    const maxChunkSize = 5 * 1024 * 1024 // 5MB - bon équilibre entre vitesse et nombre d'appels API
 
     console.log(`📊 File size: ${fileSizeMB.toFixed(2)} MB`)
 
@@ -200,6 +202,20 @@ export async function transcribeAudio(
         })
       }
 
+      // Pour les petits fichiers, simuler la progression en envoyant par batches
+      if (onProgress && segments.length > 0) {
+        const batchSize = 5 // Envoyer 5 segments à la fois
+        for (let i = 0; i < segments.length; i += batchSize) {
+          const batch = segments.slice(i, i + batchSize)
+          console.log(`📤 Sending batch ${Math.floor(i / batchSize) + 1}: ${batch.length} segments`)
+          await onProgress(batch)
+          // Petit délai pour simuler l'arrivée progressive
+          if (i + batchSize < segments.length) {
+            await new Promise(resolve => setTimeout(resolve, 500))
+          }
+        }
+      }
+
       // Post-traitement : fusionner les segments incomplets
       return mergeIncompleteSegments(segments)
     }
@@ -225,6 +241,12 @@ export async function transcribeAudio(
       }))
 
       allSegments.push(...adjustedSegments)
+
+      // Notifier la progression après chaque chunk
+      if (onProgress && adjustedSegments.length > 0) {
+        console.log(`📤 Sending ${adjustedSegments.length} segments from chunk ${i + 1}`)
+        await onProgress(adjustedSegments)
+      }
     }
 
     console.log(`✅ Transcription completed: ${allSegments.length} segments, ${allSegments.map(s => s.text).join(' ').length} chars`)

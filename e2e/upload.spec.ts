@@ -92,9 +92,29 @@ test.describe('Page Upload', () => {
     await expect(page.getByText(/Glissez-déposez votre fichier audio ici/i)).toBeVisible()
   })
 
-  test('upload un fichier et redirige vers la page meeting', async ({ page }) => {
-    await mockUploadAPI(page)
-    await mockTranscriptionAPI(page)
+  test('upload un fichier et redirige vers la page de succès', async ({ page }) => {
+    // Mock l'API de process-uploaded
+    await page.route('**/api/process-uploaded', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          meetingId: 'test-upload-meeting-id',
+        }),
+      })
+    })
+
+    // Mock l'API d'upload-url pour Blob
+    await page.route('**/api/upload-url', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          url: 'https://fake-blob-url.com/test.mp3',
+        }),
+      })
+    })
 
     // Créer un fichier de test
     const testFilePath = createTestAudioFile('test-upload-success.mp3')
@@ -109,14 +129,12 @@ test.describe('Page Upload', () => {
     // Cliquer sur "Analyser"
     await page.getByRole('button', { name: /Analyser/i }).click()
 
-    // Vérifier que le message de traitement s'affiche
-    await expect(page.getByText(/Traitement.../i)).toBeVisible()
+    // Attendre la redirection vers la page de succès
+    await page.waitForURL('/upload/success', { timeout: 10000 })
 
-    // Attendre la redirection vers la page meeting
-    await page.waitForURL(/\/meeting\/.+/, { timeout: 10000 })
-
-    // Vérifier qu'on est sur la page meeting
-    expect(page.url()).toMatch(/\/meeting\//)
+    // Vérifier qu'on est sur la page de succès
+    expect(page.url()).toContain('/upload/success')
+    await expect(page.getByText(/Upload réussi !/i)).toBeVisible()
   })
 
   test('affiche les informations sur le processus', async ({ page }) => {
@@ -131,7 +149,12 @@ test.describe('Page Upload', () => {
   })
 
   test('affiche un message d\'erreur si l\'upload échoue', async ({ page }) => {
-    // Mocker une erreur d'upload
+    // Mocker une erreur sur l'API upload-url (simule une erreur Blob)
+    await page.route('**/api/upload-url', async (route) => {
+      await route.abort('failed')
+    })
+
+    // Mocker aussi l'ancien endpoint upload en erreur
     await page.route('**/api/upload', async (route) => {
       await route.fulfill({
         status: 500,
@@ -153,7 +176,7 @@ test.describe('Page Upload', () => {
     // Cliquer sur "Analyser"
     await page.getByRole('button', { name: /Analyser/i }).click()
 
-    // Attendre que le message d'erreur apparaisse
-    await expect(page.getByText(/Upload failed|Erreur serveur/i)).toBeVisible()
+    // Attendre que le message d'erreur apparaisse (le message est dans error state)
+    await expect(page.locator('.text-red-800, .text-red-300')).toBeVisible()
   })
 })

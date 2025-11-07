@@ -45,7 +45,7 @@ export async function POST(request: Request) {
         createdAt: dbMeeting.createdAt.toISOString(),
         updatedAt: dbMeeting.updatedAt.toISOString(),
         status: dbMeeting.status as 'active' | 'processing' | 'completed',
-        type: dbMeeting.type as 'live' | 'upload',
+        type: dbMeeting.type as 'audio-only' | 'screen-share' | 'upload',
         duration: dbMeeting.duration ?? undefined,
       }
     }

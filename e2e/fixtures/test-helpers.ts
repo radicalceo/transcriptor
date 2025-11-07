@@ -27,22 +27,24 @@ export function createTestAudioFile(filename: string = 'test-audio.mp3'): string
 }
 
 /**
- * Mocker l'API de transcription
+ * Mocker l'API de transcription (audio-only et screen-share)
  */
 export async function mockTranscriptionAPI(page: Page) {
-  await page.route('**/api/meeting/**', async (route) => {
+  // Mock audio-only routes
+  await page.route('**/api/audio-only/**', async (route) => {
     const method = route.request().method()
     const url = route.request().url()
 
-    if (method === 'POST' && url.includes('/api/meeting/start')) {
+    if (method === 'POST' && url.includes('/api/audio-only/start')) {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           success: true,
           meeting: {
-            id: 'test-meeting-id',
+            id: 'test-audio-only-id',
             status: 'active',
+            type: 'audio-only',
             transcript: [],
             suggestions: {
               topics: [],
@@ -61,6 +63,96 @@ export async function mockTranscriptionAPI(page: Page) {
           meeting: {
             id: 'test-meeting-id',
             status: 'active',
+            transcript: ['Test transcript segment'],
+            transcriptSegments: [
+              {
+                text: 'Test transcript segment',
+                timestamp: 0,
+                speaker: 'Speaker 1',
+              },
+            ],
+            suggestions: {
+              topics: ['Test topic'],
+              decisions: ['Test decision'],
+              actions: [{ text: 'Test action', assignee: 'John' }],
+            },
+          },
+        }),
+      })
+    } else {
+      await route.continue()
+    }
+  })
+
+  // Mock screen-share routes
+  await page.route('**/api/screen-share/**', async (route) => {
+    const method = route.request().method()
+    const url = route.request().url()
+
+    if (method === 'POST' && url.includes('/api/screen-share/start')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          meeting: {
+            id: 'test-screen-share-id',
+            status: 'active',
+            type: 'screen-share',
+            transcript: [],
+            suggestions: {
+              topics: [],
+              decisions: [],
+              actions: [],
+            },
+          },
+        }),
+      })
+    } else if (method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          meeting: {
+            id: 'test-screen-share-id',
+            status: 'active',
+            type: 'screen-share',
+            transcript: ['Test transcript segment'],
+            transcriptSegments: [
+              {
+                text: 'Test transcript segment',
+                timestamp: 0,
+                speaker: 'Speaker 1',
+              },
+            ],
+            suggestions: {
+              topics: ['Test topic'],
+              decisions: ['Test decision'],
+              actions: [{ text: 'Test action', assignee: 'John' }],
+            },
+          },
+        }),
+      })
+    } else {
+      await route.continue()
+    }
+  })
+
+  // Mock generic meeting routes (for GET requests)
+  await page.route('**/api/meeting/**', async (route) => {
+    const method = route.request().method()
+
+    if (method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          meeting: {
+            id: 'test-meeting-id',
+            status: 'active',
+            type: 'audio-only',
             transcript: ['Test transcript segment'],
             transcriptSegments: [
               {

@@ -19,13 +19,20 @@ export async function GET(
       )
     }
 
-    // Convert JSON strings back to objects
+    // Verify it's a screen-share meeting
+    if (meeting.type !== 'screen-share') {
+      return NextResponse.json(
+        { success: false, error: 'Not a screen-share meeting' },
+        { status: 400 }
+      )
+    }
+
     return NextResponse.json({
       success: true,
       meeting: {
         id: meeting.id,
-        type: meeting.type || 'audio-only', // Default to audio-only for legacy meetings
         status: meeting.status,
+        type: meeting.type,
         title: meeting.title,
         audioPath: meeting.audioPath,
         transcript: JSON.parse(meeting.transcript),
@@ -42,7 +49,7 @@ export async function GET(
       },
     })
   } catch (error) {
-    console.error('Error fetching meeting:', error)
+    console.error('Error fetching screen-share meeting:', error)
     return NextResponse.json(
       { success: false, error: 'Failed to fetch meeting' },
       { status: 500 }
@@ -65,7 +72,7 @@ export async function POST(
       )
     }
 
-    // Get current transcript and add new line
+    // Get current meeting
     const meeting = await prisma.meeting.findUnique({
       where: { id },
     })
@@ -77,11 +84,16 @@ export async function POST(
       )
     }
 
+    // Verify it's a screen-share meeting
+    if (meeting.type !== 'screen-share') {
+      return NextResponse.json(
+        { success: false, error: 'Not a screen-share meeting' },
+        { status: 400 }
+      )
+    }
+
     const currentTranscript = JSON.parse(meeting.transcript)
     currentTranscript.push(transcript)
-
-    console.log('DEBUG - Adding transcript:', transcript)
-    console.log('DEBUG - Updated transcript array length:', currentTranscript.length)
 
     await prisma.meeting.update({
       where: { id },
@@ -90,15 +102,14 @@ export async function POST(
       },
     })
 
-    // Also update in-memory store for live suggestions
+    // Update in-memory store for live suggestions
     meetingStore.addTranscript(id, transcript)
-    console.log('DEBUG - Transcript added to both stores')
 
     return NextResponse.json({
       success: true,
     })
   } catch (error) {
-    console.error('Error adding transcript:', error)
+    console.error('Error adding transcript to screen-share meeting:', error)
     return NextResponse.json(
       { success: false, error: 'Failed to add transcript' },
       { status: 500 }
@@ -121,6 +132,19 @@ export async function PUT(
       )
     }
 
+    // Verify it's a screen-share meeting
+    const meeting = await prisma.meeting.findUnique({
+      where: { id },
+      select: { type: true },
+    })
+
+    if (!meeting || meeting.type !== 'screen-share') {
+      return NextResponse.json(
+        { success: false, error: 'Not a screen-share meeting' },
+        { status: 400 }
+      )
+    }
+
     await prisma.meeting.update({
       where: { id },
       data: { notes },
@@ -130,7 +154,7 @@ export async function PUT(
       success: true,
     })
   } catch (error) {
-    console.error('Error updating notes:', error)
+    console.error('Error updating notes for screen-share meeting:', error)
     return NextResponse.json(
       { success: false, error: 'Failed to update notes' },
       { status: 500 }

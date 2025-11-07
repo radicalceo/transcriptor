@@ -13,8 +13,9 @@ test.describe('Page d\'accueil', () => {
       page.getByText('Enregistrez, transcrivez et analysez vos réunions avec l\'IA')
     ).toBeVisible()
 
-    // Vérifier les deux boutons principaux
-    await expect(page.getByRole('button', { name: /Démarrer un meeting/i })).toBeVisible()
+    // Vérifier les trois boutons principaux (2 modes live + upload)
+    await expect(page.getByRole('button', { name: /Micro uniquement/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /Micro \+ Audio de l'onglet/i })).toBeVisible()
     await expect(page.getByRole('button', { name: /Uploader un enregistrement/i })).toBeVisible()
 
     // Vérifier le bouton historique
@@ -27,18 +28,32 @@ test.describe('Page d\'accueil', () => {
     await expect(page.getByText('Résumé post-meeting')).toBeVisible()
   })
 
-  test('le bouton "Démarrer un meeting" redirige vers la page meeting', async ({ page }) => {
+  test('le bouton "Micro uniquement" redirige vers audio-only', async ({ page }) => {
     await mockTranscriptionAPI(page)
     await page.goto('/')
 
-    // Cliquer sur le bouton "Démarrer un meeting"
-    await page.getByRole('button', { name: /Démarrer un meeting/i }).click()
+    // Cliquer sur le bouton "Micro uniquement"
+    await page.getByRole('button', { name: /Micro uniquement/i }).click()
 
-    // Attendre la redirection vers la page meeting (le texte "Démarrage..." est trop rapide)
-    await page.waitForURL(/\/meeting\/.+/, { timeout: 10000 })
+    // Attendre la redirection vers la page audio-only
+    await page.waitForURL(/\/meeting\/audio-only\/.+/, { timeout: 10000 })
 
-    // Vérifier qu'on est sur la page meeting
-    expect(page.url()).toMatch(/\/meeting\//)
+    // Vérifier qu'on est sur la page audio-only
+    expect(page.url()).toMatch(/\/meeting\/audio-only\//)
+  })
+
+  test('le bouton "Micro + Audio de l\'onglet" redirige vers screen-share', async ({ page }) => {
+    await mockTranscriptionAPI(page)
+    await page.goto('/')
+
+    // Cliquer sur le bouton "Micro + Audio de l'onglet"
+    await page.getByRole('button', { name: /Micro \+ Audio de l'onglet/i }).click()
+
+    // Attendre la redirection vers la page screen-share
+    await page.waitForURL(/\/meeting\/screen-share\/.+/, { timeout: 10000 })
+
+    // Vérifier qu'on est sur la page screen-share
+    expect(page.url()).toMatch(/\/meeting\/screen-share\//)
   })
 
   test('le bouton "Uploader un enregistrement" redirige vers la page upload', async ({ page }) => {
@@ -77,6 +92,6 @@ test.describe('Page d\'accueil', () => {
 
     // Les éléments principaux doivent être visibles même en mode sombre
     await expect(page.getByRole('heading', { name: 'Meeting Copilot' })).toBeVisible()
-    await expect(page.getByRole('button', { name: /Démarrer un meeting/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /Micro uniquement/i })).toBeVisible()
   })
 })

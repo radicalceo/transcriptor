@@ -99,8 +99,8 @@ export default function UploadPage() {
       const data = await processResponse.json()
 
       if (data.success) {
-        // Rediriger vers la page du meeting
-        router.push(`/meeting/${data.meetingId}`)
+        // Rediriger vers la page de succès
+        router.push('/upload/success')
       } else {
         setError(data.error || 'Processing failed')
         setIsUploading(false)
@@ -145,7 +145,8 @@ export default function UploadPage() {
       const data = await response.json()
 
       if (data.success) {
-        router.push(`/meeting/${data.meetingId}`)
+        // Rediriger vers la page de succès
+        router.push('/upload/success')
       } else {
         setError(data.error || 'Upload failed')
         setIsUploading(false)

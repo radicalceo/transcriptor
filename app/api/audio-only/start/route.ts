@@ -19,7 +19,7 @@ export async function POST() {
     const meeting = await prisma.meeting.create({
       data: {
         status: 'active',
-        type: 'live',
+        type: 'audio-only',
         title: null,
         transcript: '[]',
         transcriptSegments: '[]',
@@ -30,14 +30,15 @@ export async function POST() {
       },
     })
 
-    // Also create in memory store for live suggestions
-    meetingStore.create(meeting.id, 'live', meeting.title || undefined)
+    // Create in memory store for live suggestions
+    meetingStore.create(meeting.id, 'audio-only', meeting.title || undefined)
 
     return NextResponse.json({
       success: true,
       meeting: {
         id: meeting.id,
         status: meeting.status,
+        type: meeting.type,
         title: meeting.title,
         transcript: JSON.parse(meeting.transcript),
         transcriptSegments: JSON.parse(meeting.transcriptSegments),
@@ -52,7 +53,7 @@ export async function POST() {
       },
     })
   } catch (error) {
-    console.error('Error starting meeting:', error)
+    console.error('Error starting audio-only meeting:', error)
     return NextResponse.json(
       { success: false, error: 'Failed to start meeting' },
       { status: 500 }

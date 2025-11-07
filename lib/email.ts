@@ -133,3 +133,64 @@ export async function sendPasswordResetEmail({
     return { success: false, error };
   }
 }
+
+interface SendTranscriptionCompleteEmailParams {
+  userEmail: string;
+  userName?: string | null;
+  meetingId: string;
+  meetingTitle: string;
+}
+
+export async function sendTranscriptionCompleteEmail({
+  userEmail,
+  userName,
+  meetingId,
+  meetingTitle,
+}: SendTranscriptionCompleteEmailParams) {
+  try {
+    if (!process.env.RESEND_API_KEY) {
+      console.warn("RESEND_API_KEY non configurée, email non envoyé");
+      return { success: false, error: "Resend API key not configured" };
+    }
+
+    const meetingUrl = `${APP_URL}/summary/${meetingId}`;
+
+    const client = getResendClient();
+    const { data, error } = await client.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+      to: userEmail,
+      subject: `Transcription terminée - ${meetingTitle}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">✅ Votre transcription est prête !</h2>
+          <p>Bonjour${userName ? ` ${userName}` : ""},</p>
+          <p>La transcription de votre enregistrement <strong>"${meetingTitle}"</strong> est maintenant terminée.</p>
+          <p>Vous pouvez consulter le résumé complet, les thèmes abordés, les décisions et les actions à entreprendre.</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${meetingUrl}" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
+              Voir la transcription
+            </a>
+          </div>
+          <p style="color: #666; font-size: 14px;">
+            Ou copiez ce lien dans votre navigateur :<br/>
+            <a href="${meetingUrl}" style="color: #4f46e5;">${meetingUrl}</a>
+          </p>
+          <p style="color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+            Cet email a été envoyé automatiquement par Transcriptor.
+          </p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error("Erreur lors de l'envoi de l'email de transcription:", error);
+      return { success: false, error };
+    }
+
+    console.log("📧 Email de transcription envoyé avec succès:", data);
+    return { success: true, data };
+  } catch (error) {
+    console.error("Erreur lors de l'envoi de l'email de transcription:", error);
+    return { success: false, error };
+  }
+}

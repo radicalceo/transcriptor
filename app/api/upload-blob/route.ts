@@ -168,15 +168,6 @@ async function processAudioFromBlob(meetingId: string, blobUrl: string) {
       // Étape 3: Générer le résumé avec Claude
       const fullTranscript = transcriptArray.join(' ')
 
-      if (fullTranscript.length < 100) {
-        console.log('⚠️ Transcript too short, skipping analysis')
-        await prisma.meeting.update({
-          where: { id: meetingId },
-          data: { status: 'completed' },
-        })
-        return
-      }
-
       console.log('🤖 Analyzing with Claude...')
       const { generateFinalSummary } = await import('@/lib/services/claudeService')
 

@@ -145,12 +145,30 @@ async function processAudioFile(meetingId: string, filePath: string) {
   try {
     console.log(`🎙️  Starting transcription for meeting ${meetingId}`)
 
-    // Étape 1: Transcrire avec Whisper
-    const segments = await transcribeAudio(filePath)
+    // Étape 1: Transcrire avec Whisper (avec callback progressif)
+    let allSegments: any[] = []
+
+    // Callback pour sauvegarder progressivement
+    const onProgress = async (newSegments: any[]) => {
+      allSegments.push(...newSegments)
+
+      console.log(`💾 Saving ${newSegments.length} new segments (total: ${allSegments.length})`)
+      const transcriptArray = allSegments.map((s: any) => s.text)
+
+      await prisma.meeting.update({
+        where: { id: meetingId },
+        data: {
+          transcript: JSON.stringify(transcriptArray),
+          transcriptSegments: JSON.stringify(allSegments),
+        },
+      })
+    }
+
+    const segments = await transcribeAudio(filePath, 'fr', onProgress)
 
     console.log(`✅ Transcription completed: ${segments.length} segments`)
 
-    // Étape 2: Stocker les segments avec timestamps
+    // Étape 2: Sauvegarder les segments fusionnés finaux
     const transcriptArray = segments.map((s) => s.text)
     await prisma.meeting.update({
       where: { id: meetingId },
@@ -163,41 +181,67 @@ async function processAudioFile(meetingId: string, filePath: string) {
     // Étape 3: Générer le résumé complet avec Claude (1 seul appel)
     const fullTranscript = transcriptArray.join(' ')
 
-    if (fullTranscript.length < 100) {
-      console.log('⚠️ Transcript too short, skipping analysis')
+    // Tenter de générer le résumé avec Claude (même pour les courts extraits)
+    let summary = null
+    try {
+      console.log('🤖 Analyzing full transcript with Claude (single call)...')
+      const { generateFinalSummary } = await import('@/lib/services/claudeService')
+
+      summary = await generateFinalSummary(transcriptArray, undefined)
+      console.log('✅ Analysis completed in single call')
+    } catch (claudeError: any) {
+      console.error('⚠️ Claude analysis failed:', claudeError.message)
+      console.error('Transcript will be saved without summary')
+    }
+
+    // Étape 4: Sauvegarder les suggestions et le résumé (avec ou sans résumé)
+    if (summary) {
+      const limitedSuggestions = {
+        topics: summary.topics.slice(0, 8),
+        decisions: summary.decisions.slice(0, 10),
+        actions: summary.actions.slice(0, 15),
+      }
+
+      await prisma.meeting.update({
+        where: { id: meetingId },
+        data: {
+          topics: JSON.stringify(limitedSuggestions.topics),
+          decisions: JSON.stringify(limitedSuggestions.decisions),
+          actions: JSON.stringify(limitedSuggestions.actions),
+          summary: JSON.stringify(summary),
+          status: 'completed',
+        },
+      })
+    } else {
+      // Juste marquer comme complété sans résumé
       await prisma.meeting.update({
         where: { id: meetingId },
         data: { status: 'completed' },
       })
-      return
     }
 
-    console.log('🤖 Analyzing full transcript with Claude (single call)...')
-    const { generateFinalSummary } = await import('@/lib/services/claudeService')
-
-    const summary = await generateFinalSummary(transcriptArray, undefined)
-
-    // Extraire les suggestions du résumé pour l'affichage live
-    const limitedSuggestions = {
-      topics: summary.topics.slice(0, 8),
-      decisions: summary.decisions.slice(0, 10),
-      actions: summary.actions.slice(0, 15),
-    }
-
-    // Étape 4: Sauvegarder les suggestions et le résumé
-    await prisma.meeting.update({
-      where: { id: meetingId },
-      data: {
-        topics: JSON.stringify(limitedSuggestions.topics),
-        decisions: JSON.stringify(limitedSuggestions.decisions),
-        actions: JSON.stringify(limitedSuggestions.actions),
-        summary: JSON.stringify(summary),
-        status: 'completed',
-      },
-    })
-
-    console.log('✅ Analysis completed in single call')
     console.log(`✅ Processing completed for meeting ${meetingId}`)
+
+    // Envoyer l'email de notification
+    try {
+      const meetingWithUser = await prisma.meeting.findUnique({
+        where: { id: meetingId },
+        include: { user: true },
+      })
+
+      if (meetingWithUser?.user) {
+        const { sendTranscriptionCompleteEmail } = await import('@/lib/email')
+        await sendTranscriptionCompleteEmail({
+          userEmail: meetingWithUser.user.email,
+          userName: meetingWithUser.user.name,
+          meetingId: meetingId,
+          meetingTitle: meetingWithUser.title || 'Enregistrement audio',
+        })
+      }
+    } catch (emailError) {
+      console.error('⚠️ Failed to send completion email:', emailError)
+      // Ne pas bloquer si l'email échoue
+    }
   } catch (error) {
     console.error('Error in processAudioFile:', error)
 

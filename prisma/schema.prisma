@@ -66,7 +66,7 @@ model Meeting {
   id                String   @id @default(uuid())
   title             String?
   status            String   @default("active") // active, processing, completed
-  type              String   @default("live") // live, upload
+  type              String   @default("audio-only") // audio-only, screen-share, upload
   audioPath         String?  // Path to saved audio file
   transcript        String   @default("[]") // JSON array of transcript strings
   transcriptSegments String  @default("[]") // JSON array of TranscriptSegment objects

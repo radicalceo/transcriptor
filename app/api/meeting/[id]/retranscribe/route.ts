@@ -80,15 +80,6 @@ async function retranscribeAudioFile(meetingId: string, filePath: string) {
     // Étape 3: Régénérer le résumé avec Claude
     const fullTranscript = transcriptArray.join(' ')
 
-    if (fullTranscript.length < 100) {
-      console.log('⚠️ Transcript too short, skipping analysis')
-      await prisma.meeting.update({
-        where: { id: meetingId },
-        data: { status: 'completed' },
-      })
-      return
-    }
-
     console.log('🤖 Re-analyzing transcript with Claude...')
     const summary = await generateFinalSummary(transcriptArray, undefined)
 
