@@ -10,11 +10,11 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const audioChunk = formData.get('audio') as File
     const meetingId = formData.get('meetingId') as string
-    const isPartial = formData.get('isPartial') === 'true'
+    const chunkIndex = formData.get('chunkIndex') as string
 
-    if (!audioChunk || !meetingId) {
+    if (!audioChunk || !meetingId || !chunkIndex) {
       return NextResponse.json(
-        { error: 'Missing audio file or meeting ID' },
+        { error: 'Missing audio file, meeting ID, or chunk index' },
         { status: 400 }
       )
     }
@@ -35,36 +35,43 @@ export async function POST(request: NextRequest) {
     const originalFileName = audioChunk.name || 'audio.webm'
     const originalExtension = originalFileName.split('.').pop() || 'webm'
 
-    // Pour les chunks partiels, utiliser un nom temporaire
-    // Pour le chunk final, utiliser le nom définitif
-    const fileName = isPartial
-      ? `${meetingId}-temp.${originalExtension}`
-      : `${meetingId}-live.${originalExtension}`
+    // Utiliser un nom de chunk numéroté pour permettre la concaténation
+    const fileName = `${meetingId}-chunk-${chunkIndex}.${originalExtension}`
 
-    console.log(`📝 Uploading audio ${isPartial ? 'chunk' : 'final file'} for meeting ${meetingId}`)
+    console.log(`📝 Uploading audio chunk ${chunkIndex} for meeting ${meetingId}`)
 
     // Upload vers Vercel Blob Storage
     const blob = await put(fileName, audioChunk, {
       access: 'public',
-      addRandomSuffix: isPartial ? false : true, // Suffix pour fichier final uniquement
-      allowOverwrite: true, // Permettre l'écrasement des chunks partiels
+      addRandomSuffix: false, // Pas de suffix pour garder l'ordre des chunks
+      allowOverwrite: true, // Permettre l'écrasement des chunks (au cas où)
     })
 
-    console.log(`✅ Audio uploaded to Blob Storage: ${blob.url}`)
+    console.log(`✅ Audio chunk ${chunkIndex} uploaded to Blob Storage: ${blob.url}`)
 
-    // Mettre à jour le meeting avec l'URL du blob
+    // Récupérer les chunks existants et ajouter le nouveau
+    const existingChunks = JSON.parse(meeting.audioChunks || '[]') as string[]
+    const chunkIndexNum = parseInt(chunkIndex, 10)
+
+    // Insérer ou remplacer le chunk à l'index approprié
+    existingChunks[chunkIndexNum] = blob.url
+
+    // Mettre à jour le meeting avec le nouveau tableau de chunks
     await prisma.meeting.update({
       where: { id: meetingId },
-      data: { audioPath: blob.url }
+      data: {
+        audioChunks: JSON.stringify(existingChunks),
+        audioPath: blob.url // Garder le dernier chunk pour compatibilité
+      }
     })
 
     return NextResponse.json({
       success: true,
-      audioPath: blob.url,
-      isPartial
+      chunkUrl: blob.url,
+      chunkIndex: chunkIndexNum
     })
   } catch (error) {
-    console.error('Error saving audio:', error)
+    console.error('Error saving audio chunk:', error)
     return NextResponse.json(
       { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }

@@ -33,6 +33,7 @@ export default function AudioOnlyMeetingPage() {
   const isRecordingRef = useRef<boolean>(false)
   const micStreamRef = useRef<MediaStream | null>(null)
   const lastSpeechRestartRef = useRef<number>(0)
+  const chunkIndexRef = useRef<number>(0)
 
   // Load meeting data
   useEffect(() => {
@@ -241,19 +242,22 @@ export default function AudioOnlyMeetingPage() {
             const blob = new Blob(pendingChunksRef.current, { type: mimeType })
             pendingChunksRef.current = []
 
+            const currentChunkIndex = chunkIndexRef.current
+            chunkIndexRef.current += 1
+
             const formData = new FormData()
-            formData.append('audio', blob, `meeting-${meetingId}-chunk.${fileExtension}`)
+            formData.append('audio', blob, `meeting-${meetingId}-chunk-${currentChunkIndex}.${fileExtension}`)
             formData.append('meetingId', meetingId)
-            formData.append('isPartial', 'true')
+            formData.append('chunkIndex', currentChunkIndex.toString())
 
             try {
-              console.log(`📤 Saving audio chunk (${(blob.size / 1024).toFixed(1)}KB)`)
+              console.log(`📤 Saving audio chunk ${currentChunkIndex} (${(blob.size / 1024).toFixed(1)}KB)`)
               await fetch('/api/meeting/save-audio', {
                 method: 'POST',
                 body: formData,
               })
             } catch (error) {
-              console.error('❌ Error saving audio:', error)
+              console.error('❌ Error saving audio chunk:', error)
             }
           }
         }, 30000)
@@ -341,7 +345,9 @@ export default function AudioOnlyMeetingPage() {
       micStreamRef.current.getTracks().forEach(track => track.stop())
     }
 
-    // Stop media recorder and save final audio
+    // Stop media recorder and save only remaining chunks
+    // Note: Audio is already being saved every 30 seconds during recording,
+    // so we only need to save the final pending chunks (not all chunks)
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       try {
         if (mediaRecorderRef.current.state === 'recording') {
@@ -350,20 +356,26 @@ export default function AudioOnlyMeetingPage() {
         mediaRecorderRef.current.stop()
         await new Promise(resolve => setTimeout(resolve, 500))
 
-        if (audioChunksRef.current.length > 0) {
-          const allChunks = [...audioChunksRef.current]
+        // Only upload pending chunks that haven't been saved yet
+        if (pendingChunksRef.current.length > 0) {
           const recorderMimeType = mediaRecorderRef.current.mimeType || 'audio/webm'
           const recorderExtension = recorderMimeType.includes('mp4') ? 'mp4' : 'webm'
-          const blob = new Blob(allChunks, { type: recorderMimeType })
-          const formData = new FormData()
-          formData.append('audio', blob, `meeting-${meetingId}-final.${recorderExtension}`)
-          formData.append('meetingId', meetingId)
-          formData.append('isPartial', 'false')
+          const blob = new Blob(pendingChunksRef.current, { type: recorderMimeType })
 
+          const finalChunkIndex = chunkIndexRef.current
+
+          const formData = new FormData()
+          formData.append('audio', blob, `meeting-${meetingId}-chunk-${finalChunkIndex}.${recorderExtension}`)
+          formData.append('meetingId', meetingId)
+          formData.append('chunkIndex', finalChunkIndex.toString())
+
+          console.log(`📤 Saving final audio chunk ${finalChunkIndex} (${(blob.size / 1024).toFixed(1)}KB)`)
           await fetch('/api/meeting/save-audio', {
             method: 'POST',
             body: formData,
           })
+        } else {
+          console.log('✅ No pending chunks to save (all audio already saved)')
         }
       } catch (error) {
         console.error('Error stopping media recorder:', error)

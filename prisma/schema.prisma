@@ -68,7 +68,8 @@ model Meeting {
   title             String?
   status            String   @default("active") // active, processing, completed
   type              String   @default("audio-only") // audio-only, screen-share, upload
-  audioPath         String?  // Path to saved audio file
+  audioPath         String?  // Path to saved audio file (legacy or single upload)
+  audioChunks       String   @default("[]") // JSON array of chunk URLs for live recordings
   transcript        String   @default("[]") // JSON array of transcript strings
   transcriptSegments String  @default("[]") // JSON array of TranscriptSegment objects
   duration          Int?     // Duration in seconds

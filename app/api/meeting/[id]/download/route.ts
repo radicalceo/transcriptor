@@ -11,7 +11,7 @@ export async function GET(
     // Récupérer le meeting depuis la base de données
     const meeting = await prisma.meeting.findUnique({
       where: { id: meetingId },
-      select: { audioPath: true, title: true, createdAt: true }
+      select: { audioPath: true, audioChunks: true, title: true, createdAt: true }
     })
 
     if (!meeting) {
@@ -21,6 +21,65 @@ export async function GET(
       )
     }
 
+    // Parse audioChunks array
+    const chunkUrls = JSON.parse(meeting.audioChunks || '[]') as string[]
+
+    // If we have multiple chunks, concatenate them
+    if (chunkUrls.length > 0) {
+      console.log(`🔗 Fetching ${chunkUrls.length} audio chunks for concatenation`)
+
+      // Fetch all chunks in parallel
+      const chunkBuffers = await Promise.all(
+        chunkUrls.map(async (url) => {
+          const response = await fetch(url)
+          if (!response.ok) {
+            throw new Error(`Failed to fetch chunk: ${url}`)
+          }
+          return response.arrayBuffer()
+        })
+      )
+
+      // Concatenate all chunks into a single buffer
+      const totalLength = chunkBuffers.reduce((sum, buf) => sum + buf.byteLength, 0)
+      const concatenated = new Uint8Array(totalLength)
+      let offset = 0
+      for (const buffer of chunkBuffers) {
+        concatenated.set(new Uint8Array(buffer), offset)
+        offset += buffer.byteLength
+      }
+
+      console.log(`✅ Concatenated ${chunkUrls.length} chunks into ${(totalLength / 1024 / 1024).toFixed(2)}MB file`)
+
+      // Determine MIME type from first chunk URL
+      const firstChunkUrl = chunkUrls[0]
+      const extension = firstChunkUrl.split('.').pop()?.toLowerCase() || 'webm'
+      const mimeTypes: Record<string, string> = {
+        'mp3': 'audio/mpeg',
+        'mp4': 'audio/mp4',
+        'm4a': 'audio/mp4',
+        'wav': 'audio/wav',
+        'webm': 'audio/webm',
+        'ogg': 'audio/ogg',
+      }
+      const mimeType = mimeTypes[extension] || 'audio/webm'
+
+      // Create a friendly filename
+      const date = new Date(meeting.createdAt).toISOString().split('T')[0]
+      const fileName = meeting.title
+        ? `${meeting.title.replace(/[^a-z0-9]/gi, '_')}_${date}.${extension}`
+        : `meeting_${meetingId.slice(0, 8)}_${date}.${extension}`
+
+      // Return the concatenated file
+      return new NextResponse(concatenated, {
+        headers: {
+          'Content-Type': mimeType,
+          'Content-Disposition': `attachment; filename="${fileName}"`,
+          'Content-Length': totalLength.toString(),
+        },
+      })
+    }
+
+    // Legacy path: single audioPath file (for backward compatibility and uploads)
     if (!meeting.audioPath) {
       return NextResponse.json(
         { error: 'No audio file available for this meeting' },
