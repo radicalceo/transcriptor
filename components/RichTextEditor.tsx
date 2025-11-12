@@ -26,12 +26,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
     const quill = new Quill(editorDiv, {
       theme: 'snow',
       modules: {
-        toolbar: [
-          [{ header: [1, 2, 3, false] }],
-          ['bold', 'italic', 'underline'],
-          [{ list: 'ordered' }, { list: 'bullet' }],
-          ['clean'],
-        ],
+        toolbar: '#custom-toolbar', // Use custom toolbar
       },
       placeholder: 'Prenez des notes pendant la réunion...',
     })
@@ -95,11 +90,121 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
     }
   }, [value])
 
+  const handleFormat = (format: string, value?: string) => {
+    if (!quillRef.current) return
+
+    if (value) {
+      quillRef.current.format(format, value)
+    } else {
+      const currentFormat = quillRef.current.getFormat()
+      quillRef.current.format(format, !currentFormat[format])
+    }
+    quillRef.current.focus()
+  }
+
   return (
     <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+      {/* Custom Toolbar */}
+      <div id="custom-toolbar" className="bg-gray-100 dark:bg-gray-700 border-b border-gray-300 dark:border-gray-600 p-2 flex flex-wrap gap-1">
+        <button
+          type="button"
+          onClick={() => handleFormat('bold')}
+          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm font-semibold text-gray-700 dark:text-gray-200 transition-colors"
+          title="Gras"
+        >
+          B
+        </button>
+        <button
+          type="button"
+          onClick={() => handleFormat('italic')}
+          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm italic text-gray-700 dark:text-gray-200 transition-colors"
+          title="Italique"
+        >
+          I
+        </button>
+        <button
+          type="button"
+          onClick={() => handleFormat('underline')}
+          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm underline text-gray-700 dark:text-gray-200 transition-colors"
+          title="Souligné"
+        >
+          U
+        </button>
+
+        <div className="w-px bg-gray-300 dark:bg-gray-600 mx-1"></div>
+
+        <button
+          type="button"
+          onClick={() => handleFormat('header', '1')}
+          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm font-bold text-gray-700 dark:text-gray-200 transition-colors"
+          title="Titre 1"
+        >
+          H1
+        </button>
+        <button
+          type="button"
+          onClick={() => handleFormat('header', '2')}
+          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm font-semibold text-gray-700 dark:text-gray-200 transition-colors"
+          title="Titre 2"
+        >
+          H2
+        </button>
+        <button
+          type="button"
+          onClick={() => handleFormat('header', '3')}
+          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors"
+          title="Titre 3"
+        >
+          H3
+        </button>
+        <button
+          type="button"
+          onClick={() => handleFormat('header', 'false')}
+          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm text-gray-700 dark:text-gray-200 transition-colors"
+          title="Paragraphe"
+        >
+          P
+        </button>
+
+        <div className="w-px bg-gray-300 dark:bg-gray-600 mx-1"></div>
+
+        <button
+          type="button"
+          onClick={() => handleFormat('list', 'bullet')}
+          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm text-gray-700 dark:text-gray-200 transition-colors"
+          title="Liste à puces"
+        >
+          • Liste
+        </button>
+        <button
+          type="button"
+          onClick={() => handleFormat('list', 'ordered')}
+          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm text-gray-700 dark:text-gray-200 transition-colors"
+          title="Liste numérotée"
+        >
+          1. Liste
+        </button>
+
+        <div className="w-px bg-gray-300 dark:bg-gray-600 mx-1"></div>
+
+        <button
+          type="button"
+          onClick={() => {
+            if (!quillRef.current) return
+            quillRef.current.removeFormat(quillRef.current.getSelection()?.index || 0, quillRef.current.getLength())
+            quillRef.current.focus()
+          }}
+          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm text-gray-700 dark:text-gray-200 transition-colors"
+          title="Supprimer le formatage"
+        >
+          ✕ Format
+        </button>
+      </div>
+
+      {/* Editor */}
       <div
         ref={containerRef}
-        className="bg-white dark:bg-gray-800 min-h-[600px] [&_.ql-toolbar]:bg-gray-100 [&_.ql-toolbar]:dark:bg-gray-700 [&_.ql-toolbar]:border-gray-300 [&_.ql-toolbar]:dark:border-gray-600 [&_.ql-container]:border-0 [&_.ql-editor]:min-h-[550px] [&_.ql-editor]:text-gray-900 [&_.ql-editor]:dark:text-white [&_.ql-editor]:text-base [&_.ql-editor]:p-6 [&_.ql-toolbar_.ql-stroke]:stroke-gray-700 [&_.ql-toolbar_.ql-stroke]:dark:stroke-gray-200 [&_.ql-toolbar_.ql-fill]:fill-gray-700 [&_.ql-toolbar_.ql-fill]:dark:fill-gray-200 [&_.ql-toolbar_.ql-picker-label]:text-gray-700 [&_.ql-toolbar_.ql-picker-label]:dark:text-gray-200 [&_.ql-toolbar_button:hover]:bg-gray-200 [&_.ql-toolbar_button:hover]:dark:bg-gray-600 [&_.ql-toolbar_button:hover_.ql-stroke]:stroke-gray-900 [&_.ql-toolbar_button:hover_.ql-stroke]:dark:stroke-white"
+        className="bg-white dark:bg-gray-800 [&_.ql-container]:border-0 [&_.ql-editor]:min-h-[600px] [&_.ql-editor]:text-gray-900 [&_.ql-editor]:dark:text-white [&_.ql-editor]:text-base [&_.ql-editor]:p-6 [&_.ql-editor_h1]:text-3xl [&_.ql-editor_h1]:font-bold [&_.ql-editor_h1]:mb-4 [&_.ql-editor_h1]:mt-6 [&_.ql-editor_h2]:text-2xl [&_.ql-editor_h2]:font-bold [&_.ql-editor_h2]:mb-3 [&_.ql-editor_h2]:mt-5 [&_.ql-editor_h3]:text-xl [&_.ql-editor_h3]:font-semibold [&_.ql-editor_h3]:mb-2 [&_.ql-editor_h3]:mt-4 [&_.ql-editor_p]:mb-3 [&_.ql-editor_ul]:mb-3 [&_.ql-editor_ul]:ml-6 [&_.ql-editor_ol]:mb-3 [&_.ql-editor_ol]:ml-6 [&_.ql-editor_li]:mb-1 [&_.ql-editor.ql-blank::before]:text-gray-400 [&_.ql-editor.ql-blank::before]:dark:text-gray-500"
       />
     </div>
   )
