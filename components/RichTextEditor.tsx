@@ -13,6 +13,12 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
   const containerRef = useRef<HTMLDivElement>(null)
   const quillRef = useRef<Quill | null>(null)
   const isUpdatingRef = useRef(false)
+  const onChangeRef = useRef(onChange)
+
+  // Keep onChange ref up to date
+  useEffect(() => {
+    onChangeRef.current = onChange
+  }, [onChange])
 
   // Initialize Quill
   useEffect(() => {
@@ -36,11 +42,11 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
       quill.root.innerHTML = value
     }
 
-    // Listen to text changes
+    // Listen to text changes - use ref to get latest onChange
     quill.on('text-change', () => {
       if (!isUpdatingRef.current) {
         const html = quill.root.innerHTML
-        onChange(html)
+        onChangeRef.current(html)
       }
     })
 
@@ -56,7 +62,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Empty deps - only run once (onChange is stable, value is handled in separate effect)
+  }, []) // Empty deps - onChange handled via ref, initial value captured, updates handled in separate effect
 
   // Update Quill content when value prop changes (external updates)
   useEffect(() => {
@@ -109,7 +115,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
         <button
           type="button"
           onClick={() => handleFormat('bold')}
-          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm font-semibold text-gray-700 dark:text-gray-200 transition-colors"
+          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm font-semibold text-gray-700 dark:text-gray-200 transition-colors whitespace-nowrap"
           title="Gras"
         >
           B
@@ -117,7 +123,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
         <button
           type="button"
           onClick={() => handleFormat('italic')}
-          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm italic text-gray-700 dark:text-gray-200 transition-colors"
+          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm italic text-gray-700 dark:text-gray-200 transition-colors whitespace-nowrap"
           title="Italique"
         >
           I
@@ -125,7 +131,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
         <button
           type="button"
           onClick={() => handleFormat('underline')}
-          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm underline text-gray-700 dark:text-gray-200 transition-colors"
+          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm underline text-gray-700 dark:text-gray-200 transition-colors whitespace-nowrap"
           title="Souligné"
         >
           U
@@ -136,7 +142,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
         <button
           type="button"
           onClick={() => handleFormat('header', '1')}
-          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm font-bold text-gray-700 dark:text-gray-200 transition-colors"
+          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm font-bold text-gray-700 dark:text-gray-200 transition-colors whitespace-nowrap"
           title="Titre 1"
         >
           H1
@@ -144,7 +150,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
         <button
           type="button"
           onClick={() => handleFormat('header', '2')}
-          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm font-semibold text-gray-700 dark:text-gray-200 transition-colors"
+          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm font-semibold text-gray-700 dark:text-gray-200 transition-colors whitespace-nowrap"
           title="Titre 2"
         >
           H2
@@ -152,7 +158,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
         <button
           type="button"
           onClick={() => handleFormat('header', '3')}
-          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors"
+          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm font-medium text-gray-700 dark:text-gray-200 transition-colors whitespace-nowrap"
           title="Titre 3"
         >
           H3
@@ -160,7 +166,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
         <button
           type="button"
           onClick={() => handleFormat('header', 'false')}
-          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm text-gray-700 dark:text-gray-200 transition-colors"
+          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm text-gray-700 dark:text-gray-200 transition-colors whitespace-nowrap"
           title="Paragraphe"
         >
           P
@@ -171,7 +177,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
         <button
           type="button"
           onClick={() => handleFormat('list', 'bullet')}
-          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm text-gray-700 dark:text-gray-200 transition-colors"
+          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm text-gray-700 dark:text-gray-200 transition-colors whitespace-nowrap"
           title="Liste à puces"
         >
           • Liste
@@ -179,7 +185,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
         <button
           type="button"
           onClick={() => handleFormat('list', 'ordered')}
-          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm text-gray-700 dark:text-gray-200 transition-colors"
+          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm text-gray-700 dark:text-gray-200 transition-colors whitespace-nowrap"
           title="Liste numérotée"
         >
           1. Liste
@@ -194,7 +200,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
             quillRef.current.removeFormat(quillRef.current.getSelection()?.index || 0, quillRef.current.getLength())
             quillRef.current.focus()
           }}
-          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm text-gray-700 dark:text-gray-200 transition-colors"
+          className="px-3 py-1.5 bg-white dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded border border-gray-300 dark:border-gray-500 text-sm text-gray-700 dark:text-gray-200 transition-colors whitespace-nowrap"
           title="Supprimer le formatage"
         >
           ✕ Format
