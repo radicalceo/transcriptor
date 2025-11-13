@@ -145,7 +145,7 @@ export function summaryToHtml(summary: Summary, meetingTitle?: string, meetingDa
     sections.push('</ul>')
   }
 
-  return sections.join('\n')
+  return sections.join('')
 }
 
 /**

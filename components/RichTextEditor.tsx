@@ -32,7 +32,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
     const quill = new Quill(editorDiv, {
       theme: 'snow',
       modules: {
-        toolbar: '#custom-toolbar', // Use custom toolbar
+        toolbar: false, // Disable Quill's default toolbar since we have a custom one
       },
       placeholder: 'Prenez des notes pendant la réunion...',
     })
@@ -210,7 +210,7 @@ export default function RichTextEditor({ value, onChange }: RichTextEditorProps)
       {/* Editor */}
       <div
         ref={containerRef}
-        className="bg-white dark:bg-gray-800 [&_.ql-container]:border-0 [&_.ql-editor]:min-h-[600px] [&_.ql-editor]:text-gray-900 [&_.ql-editor]:dark:text-white [&_.ql-editor]:text-base [&_.ql-editor]:p-6 [&_.ql-editor_h1]:text-3xl [&_.ql-editor_h1]:font-bold [&_.ql-editor_h1]:mb-4 [&_.ql-editor_h1]:mt-6 [&_.ql-editor_h2]:text-2xl [&_.ql-editor_h2]:font-bold [&_.ql-editor_h2]:mb-3 [&_.ql-editor_h2]:mt-5 [&_.ql-editor_h3]:text-xl [&_.ql-editor_h3]:font-semibold [&_.ql-editor_h3]:mb-2 [&_.ql-editor_h3]:mt-4 [&_.ql-editor_p]:mb-3 [&_.ql-editor_ul]:mb-3 [&_.ql-editor_ul]:ml-6 [&_.ql-editor_ol]:mb-3 [&_.ql-editor_ol]:ml-6 [&_.ql-editor_li]:mb-1 [&_.ql-editor.ql-blank::before]:text-gray-400 [&_.ql-editor.ql-blank::before]:dark:text-gray-500"
+        className="bg-white dark:bg-gray-800 [&_.ql-container]:border-0 [&_.ql-editor]:min-h-[600px] [&_.ql-editor]:text-gray-900 [&_.ql-editor]:dark:text-white [&_.ql-editor]:text-base [&_.ql-editor]:p-6 [&_.ql-editor_h1]:text-3xl [&_.ql-editor_h1]:font-bold [&_.ql-editor_h1]:mb-3 [&_.ql-editor_h1]:mt-4 [&_.ql-editor_h2]:text-2xl [&_.ql-editor_h2]:font-bold [&_.ql-editor_h2]:mb-2 [&_.ql-editor_h2]:mt-4 [&_.ql-editor_h3]:text-xl [&_.ql-editor_h3]:font-semibold [&_.ql-editor_h3]:mb-2 [&_.ql-editor_h3]:mt-3 [&_.ql-editor_p]:mb-2 [&_.ql-editor_ul]:mb-2 [&_.ql-editor_ul]:ml-6 [&_.ql-editor_ol]:mb-2 [&_.ql-editor_ol]:ml-6 [&_.ql-editor_li]:mb-1 [&_.ql-editor.ql-blank::before]:text-gray-400 [&_.ql-editor.ql-blank::before]:dark:text-gray-500"
       />
     </div>
   )

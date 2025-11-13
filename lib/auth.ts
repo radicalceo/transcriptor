@@ -73,10 +73,23 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
       }
+
+      // Verify that the user still exists in the database
+      if (token.id) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+        });
+
+        // If user doesn't exist anymore, throw an error to invalidate the session
+        if (!dbUser) {
+          throw new Error("User not found in database");
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
-      if (session?.user) {
+      if (session?.user && token?.id) {
         session.user.id = token.id as string;
       }
       return session;
