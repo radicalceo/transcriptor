@@ -29,6 +29,7 @@ export async function GET() {
       id: meeting.id,
       status: meeting.status,
       title: meeting.title,
+      type: meeting.type,
       transcript: JSON.parse(meeting.transcript),
       transcriptSegments: JSON.parse(meeting.transcriptSegments),
       suggestions: {
@@ -39,6 +40,8 @@ export async function GET() {
       summary: meeting.summary ? JSON.parse(meeting.summary) : null,
       duration: meeting.duration,
       createdAt: meeting.createdAt,
+      folderId: meeting.folderId,
+      templateId: meeting.templateId,
     }))
 
     return NextResponse.json({

@@ -22,11 +22,11 @@ export async function PATCH(
 
     const { id } = await params
     const body = await request.json()
-    const { title } = body
+    const { title, folderId } = body
 
-    if (title === undefined) {
+    if (title === undefined && folderId === undefined) {
       return NextResponse.json(
-        { success: false, error: 'Title is required' },
+        { success: false, error: 'At least one field is required (title or folderId)' },
         { status: 400 }
       )
     }
@@ -50,10 +50,32 @@ export async function PATCH(
       )
     }
 
-    // Update meeting title
+    // If folderId is provided and not null, verify it exists and belongs to user
+    if (folderId !== undefined && folderId !== null) {
+      const folder = await prisma.folder.findFirst({
+        where: {
+          id: folderId,
+          userId: user.id,
+        },
+      })
+
+      if (!folder) {
+        return NextResponse.json(
+          { success: false, error: 'Folder not found' },
+          { status: 404 }
+        )
+      }
+    }
+
+    // Build update data
+    const updateData: any = {}
+    if (title !== undefined) updateData.title = title
+    if (folderId !== undefined) updateData.folderId = folderId
+
+    // Update meeting
     const updatedMeeting = await prisma.meeting.update({
       where: { id },
-      data: { title },
+      data: updateData,
     })
 
     return NextResponse.json({

@@ -32,6 +32,15 @@ export default function SummaryPage() {
   const [isChatLoading, setIsChatLoading] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
 
+  // Template selection state
+  const [showTemplateModal, setShowTemplateModal] = useState(false)
+  const [templates, setTemplates] = useState<any[]>([])
+  const [isRegenerating, setIsRegenerating] = useState(false)
+
+  // Folder state
+  const [folders, setFolders] = useState<any[]>([])
+  const [isUpdatingFolder, setIsUpdatingFolder] = useState(false)
+
   useEffect(() => {
     const loadMeeting = async () => {
       try {
@@ -66,6 +75,40 @@ export default function SummaryPage() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatMessages])
+
+  // Load templates
+  useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        const response = await fetch('/api/templates')
+        const data = await response.json()
+        if (data.success) {
+          setTemplates(data.templates)
+        }
+      } catch (error) {
+        console.error('Error loading templates:', error)
+      }
+    }
+
+    loadTemplates()
+  }, [])
+
+  // Load folders
+  useEffect(() => {
+    const loadFolders = async () => {
+      try {
+        const response = await fetch('/api/folders')
+        const data = await response.json()
+        if (data.success) {
+          setFolders(data.folders)
+        }
+      } catch (error) {
+        console.error('Error loading folders:', error)
+      }
+    }
+
+    loadFolders()
+  }, [])
 
   const handleEdit = () => {
     if (meeting?.summary) {
@@ -187,6 +230,32 @@ export default function SummaryPage() {
     }
   }
 
+  const handleFolderChange = async (folderId: string) => {
+    setIsUpdatingFolder(true)
+    try {
+      const response = await fetch(`/api/meetings/${meetingId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ folderId: folderId || null }),
+      })
+      const data = await response.json()
+
+      if (data.success) {
+        setMeeting((prev) => prev ? { ...prev, folderId: folderId || null } : null)
+      } else {
+        console.error('Error updating folder:', data.error)
+        alert('Erreur lors de la mise à jour du dossier')
+      }
+    } catch (error) {
+      console.error('Error updating folder:', error)
+      alert('Erreur lors de la mise à jour du dossier')
+    } finally {
+      setIsUpdatingFolder(false)
+    }
+  }
+
   const handleDownloadAudio = () => {
     if (!meeting?.audioPath) return
 
@@ -236,6 +305,33 @@ ${
 
     navigator.clipboard.writeText(text)
     alert('Copié dans le presse-papier !')
+  }
+
+  const handleRegenerateWithTemplate = async (templateId: string) => {
+    setIsRegenerating(true)
+    setShowTemplateModal(false)
+
+    try {
+      const response = await fetch(`/api/summary/${meetingId}/regenerate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ templateId }),
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        // Update meeting with new summary
+        setMeeting((prev) => prev ? { ...prev, summary: data.summary } : null)
+        alert(`Résumé régénéré avec le template "${data.template.name}" !`)
+      } else {
+        alert('Erreur lors de la régénération du résumé')
+      }
+    } catch (error) {
+      console.error('Error regenerating summary:', error)
+      alert('Erreur lors de la régénération du résumé')
+    } finally {
+      setIsRegenerating(false)
+    }
   }
 
   // Show loader while loading OR while processing
@@ -365,6 +461,27 @@ ${
                     </button>
                   )}
                   <button
+                    onClick={() => setShowTemplateModal(true)}
+                    disabled={isRegenerating}
+                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                    title="Régénérer avec un template"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      />
+                    </svg>
+                    {isRegenerating ? 'Génération...' : 'Template'}
+                  </button>
+                  <button
                     onClick={handleEdit}
                     className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
                   >
@@ -485,12 +602,32 @@ ${
                   </button>
                 </div>
               )}
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {new Date(meeting.createdAt).toLocaleString('fr-FR', {
-                  dateStyle: 'long',
-                  timeStyle: 'short',
-                })}
-              </p>
+              <div className="flex items-center justify-between mt-3">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {new Date(meeting.createdAt).toLocaleString('fr-FR', {
+                    dateStyle: 'long',
+                    timeStyle: 'short',
+                  })}
+                </p>
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                  </svg>
+                  <select
+                    value={meeting.folderId || ''}
+                    onChange={(e) => handleFolderChange(e.target.value)}
+                    disabled={isUpdatingFolder}
+                    className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white rounded-md px-2 py-1 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:opacity-50"
+                  >
+                    <option value="">Non classé</option>
+                    {folders.map((folder) => (
+                      <option key={folder.id} value={folder.id}>
+                        {folder.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
 
             {/* 1. Summary */}
@@ -986,6 +1123,77 @@ ${
           </div>
         </div>
       </div>
+
+      {/* Template Selection Modal */}
+      {showTemplateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  Sélectionner un template
+                </h2>
+                <button
+                  onClick={() => setShowTemplateModal(false)}
+                  className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                Choisissez un template pour régénérer le résumé de cette réunion
+              </p>
+
+              <div className="space-y-3">
+                {templates.map((template) => (
+                  <button
+                    key={template.id}
+                    onClick={() => handleRegenerateWithTemplate(template.id)}
+                    className="w-full text-left p-4 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-purple-500 dark:hover:border-purple-500 transition-colors group"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-gray-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400">
+                            {template.name}
+                          </h3>
+                          {template.isDefault && (
+                            <span className="px-2 py-0.5 text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 rounded">
+                              Système
+                            </span>
+                          )}
+                        </div>
+                        {template.description && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                            {template.description}
+                          </p>
+                        )}
+                      </div>
+                      <svg
+                        className="w-5 h-5 text-gray-400 group-hover:text-purple-500 flex-shrink-0 ml-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {templates.length === 0 && (
+                <p className="text-center text-gray-500 dark:text-gray-400 py-8">
+                  Aucun template disponible
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

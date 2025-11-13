@@ -17,6 +17,9 @@ export default function ScreenShareMeetingPage() {
   const [notes, setNotes] = useState<string>('')
   const [isEnding, setIsEnding] = useState(false)
   const [isRequestingScreenShare, setIsRequestingScreenShare] = useState(false)
+  const [folders, setFolders] = useState<any[]>([])
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [titleValue, setTitleValue] = useState('')
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const recognitionRef = useRef<any>(null)
@@ -43,12 +46,27 @@ export default function ScreenShareMeetingPage() {
           setMeeting(data.meeting)
           setTranscript(data.meeting.transcript)
           setNotes(data.meeting.notes || '')
+          setTitleValue(data.meeting.title || '')
         }
       } catch (error) {
         console.error('Error loading meeting:', error)
       }
     }
     loadMeeting()
+
+    // Load folders
+    const loadFolders = async () => {
+      try {
+        const response = await fetch('/api/folders')
+        const data = await response.json()
+        if (data.success) {
+          setFolders(data.folders)
+        }
+      } catch (error) {
+        console.error('Error loading folders:', error)
+      }
+    }
+    loadFolders()
 
     // Poll meeting data
     const pollInterval = setInterval(async () => {
@@ -505,6 +523,40 @@ export default function ScreenShareMeetingPage() {
     }, 2000)
   }
 
+  const handleSaveTitle = async () => {
+    if (!titleValue.trim()) return
+    try {
+      const response = await fetch(`/api/meetings/${meetingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: titleValue.trim() }),
+      })
+      const data = await response.json()
+      if (data.success) {
+        setMeeting({ ...meeting!, title: titleValue.trim() })
+        setEditingTitle(false)
+      }
+    } catch (error) {
+      console.error('Error saving title:', error)
+    }
+  }
+
+  const handleFolderChange = async (folderId: string) => {
+    try {
+      const response = await fetch(`/api/meetings/${meetingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderId: folderId || null }),
+      })
+      const data = await response.json()
+      if (data.success) {
+        setMeeting({ ...meeting!, folderId: folderId || null })
+      }
+    } catch (error) {
+      console.error('Error changing folder:', error)
+    }
+  }
+
   if (!meeting) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -577,16 +629,66 @@ export default function ScreenShareMeetingPage() {
                 />
               </svg>
             </button>
-            <div>
-              <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-                {meeting.title || 'Meeting en cours'}
-              </h1>
-              {meeting.duration && (
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Durée: {Math.floor(meeting.duration / 60)}:
-                  {(meeting.duration % 60).toString().padStart(2, '0')}
-                </p>
-              )}
+            <div className="flex items-center gap-4">
+              <div>
+                {editingTitle ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={titleValue}
+                      onChange={(e) => setTitleValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSaveTitle()
+                        if (e.key === 'Escape') {
+                          setEditingTitle(false)
+                          setTitleValue(meeting.title || '')
+                        }
+                      }}
+                      onBlur={handleSaveTitle}
+                      className="text-xl font-semibold text-gray-900 dark:text-white bg-white dark:bg-gray-700 border border-indigo-500 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      placeholder="Nom du meeting"
+                      autoFocus
+                    />
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 group">
+                    <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
+                      {meeting.title || 'Meeting en cours'}
+                    </h1>
+                    <button
+                      onClick={() => setEditingTitle(true)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-gray-600 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400"
+                      title="Modifier le titre"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+                {meeting.duration && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Durée: {Math.floor(meeting.duration / 60)}:
+                    {(meeting.duration % 60).toString().padStart(2, '0')}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-500 dark:text-gray-400">Dossier</label>
+                <select
+                  value={meeting.folderId || ''}
+                  onChange={(e) => handleFolderChange(e.target.value)}
+                  className="text-sm px-3 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">Non classé</option>
+                  {folders.map(folder => (
+                    <option key={folder.id} value={folder.id}>
+                      {folder.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
             {isRecording && (
               <div className="flex items-center gap-2 text-red-600">

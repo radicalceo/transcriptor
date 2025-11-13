@@ -4,38 +4,193 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import type { Meeting } from '@/lib/types'
 
+interface Folder {
+  id: string
+  name: string
+  description?: string
+  color?: string
+  parentId?: string | null
+  parent?: Folder
+  children?: Folder[]
+  _count?: {
+    meetings: number
+  }
+}
+
 export default function HistoryPage() {
   const router = useRouter()
   const [meetings, setMeetings] = useState<Meeting[]>([])
+  const [folders, setFolders] = useState<Folder[]>([])
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState('')
   const [isUpdating, setIsUpdating] = useState(false)
+  const [showFolderModal, setShowFolderModal] = useState(false)
+  const [folderModalMode, setFolderModalMode] = useState<'create' | 'edit'>('create')
+  const [editingFolder, setEditingFolder] = useState<Folder | null>(null)
+  const [folderFormData, setFolderFormData] = useState({
+    name: '',
+    description: '',
+    color: '#6366f1',
+    parentId: null as string | null,
+  })
 
   useEffect(() => {
-    const fetchMeetings = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch('/api/meetings')
-        const data = await response.json()
-        if (data.success) {
-          // Sort by most recent first
-          const sorted = data.meetings.sort(
+        // Fetch meetings
+        const meetingsRes = await fetch('/api/meetings')
+        const meetingsData = await meetingsRes.json()
+        if (meetingsData.success) {
+          const sorted = meetingsData.meetings.sort(
             (a: Meeting, b: Meeting) =>
               new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           )
           setMeetings(sorted)
         }
+
+        // Fetch folders
+        const foldersRes = await fetch('/api/folders')
+        const foldersData = await foldersRes.json()
+        if (foldersData.success) {
+          setFolders(foldersData.folders)
+        }
       } catch (error) {
-        console.error('Error fetching meetings:', error)
+        console.error('Error fetching data:', error)
       } finally {
         setIsLoading(false)
       }
     }
 
-    fetchMeetings()
+    fetchData()
   }, [])
+
+  // Folder management functions
+  const openCreateFolderModal = (parentId: string | null = null) => {
+    setFolderModalMode('create')
+    setEditingFolder(null)
+    setFolderFormData({
+      name: '',
+      description: '',
+      color: '#6366f1',
+      parentId,
+    })
+    setShowFolderModal(true)
+  }
+
+  const openEditFolderModal = (folder: Folder) => {
+    setFolderModalMode('edit')
+    setEditingFolder(folder)
+    setFolderFormData({
+      name: folder.name,
+      description: folder.description || '',
+      color: folder.color || '#6366f1',
+      parentId: folder.parentId || null,
+    })
+    setShowFolderModal(true)
+  }
+
+  const handleSaveFolder = async () => {
+    if (!folderFormData.name.trim()) {
+      alert('Le nom du dossier est requis')
+      return
+    }
+
+    try {
+      if (folderModalMode === 'create') {
+        const response = await fetch('/api/folders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(folderFormData),
+        })
+        const data = await response.json()
+        if (data.success) {
+          setFolders([...folders, data.folder])
+          setShowFolderModal(false)
+        }
+      } else if (editingFolder) {
+        const response = await fetch(`/api/folders/${editingFolder.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(folderFormData),
+        })
+        const data = await response.json()
+        if (data.success) {
+          setFolders(folders.map(f => f.id === editingFolder.id ? data.folder : f))
+          setShowFolderModal(false)
+        }
+      }
+    } catch (error) {
+      console.error('Error saving folder:', error)
+      alert('Erreur lors de l\'enregistrement du dossier')
+    }
+  }
+
+  const handleDeleteFolder = async (folderId: string) => {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer ce dossier ? Il doit être vide.')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/folders/${folderId}`, {
+        method: 'DELETE',
+      })
+      const data = await response.json()
+      if (data.success) {
+        setFolders(folders.filter(f => f.id !== folderId))
+        if (selectedFolderId === folderId) {
+          setSelectedFolderId(null)
+        }
+      } else if (data.hasContent) {
+        alert('Impossible de supprimer un dossier contenant des meetings ou des sous-dossiers')
+      }
+    } catch (error) {
+      console.error('Error deleting folder:', error)
+      alert('Erreur lors de la suppression du dossier')
+    }
+  }
+
+  const handleMoveMeeting = async (meetingId: string, folderId: string | null) => {
+    const meeting = meetings.find(m => m.id === meetingId)
+    if (!meeting) return
+
+    const oldFolderId = meeting.folderId
+
+    try {
+      const response = await fetch(`/api/meetings/${meetingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderId }),
+      })
+      const data = await response.json()
+      if (data.success) {
+        // Update meeting
+        setMeetings(meetings.map(m => m.id === meetingId ? { ...m, folderId } : m))
+
+        // Update folder counts
+        setFolders(folders.map(f => {
+          if (f.id === oldFolderId && f._count) {
+            // Decrease count from old folder
+            return { ...f, _count: { ...f._count, meetings: f._count.meetings - 1 } }
+          } else if (f.id === folderId && f._count) {
+            // Increase count for new folder
+            return { ...f, _count: { ...f._count, meetings: f._count.meetings + 1 } }
+          }
+          return f
+        }))
+      }
+    } catch (error) {
+      console.error('Error moving meeting:', error)
+      alert('Erreur lors du déplacement du meeting')
+    }
+  }
+
+  const filteredMeetings = selectedFolderId
+    ? meetings.filter(m => m.folderId === selectedFolderId)
+    : meetings.filter(m => !m.folderId)
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -187,51 +342,115 @@ export default function HistoryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <button
-                onClick={() => router.push('/')}
-                className="mb-3 inline-flex items-center gap-2 text-sm text-gray-600 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 transition-colors"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
+      {/* Sidebar with folders */}
+      <div className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+          <button
+            onClick={() => router.push('/')}
+            className="mb-3 inline-flex items-center gap-2 text-sm text-gray-600 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Accueil
+          </button>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Dossiers</h2>
+          <button
+            onClick={() => openCreateFolderModal(null)}
+            className="w-full flex items-center gap-2 px-3 py-2 text-sm bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+            </svg>
+            Nouveau dossier
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-2">
+          <button
+            onClick={() => setSelectedFolderId(null)}
+            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors mb-1 ${
+              selectedFolderId === null
+                ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </svg>
+            <span className="flex-1 text-left">Non classés</span>
+            <span className="text-xs">{meetings.filter(m => !m.folderId).length}</span>
+          </button>
+
+          {folders.filter(f => !f.parentId).map(folder => (
+            <div key={folder.id} className="mb-1">
+              <div className="group flex items-center gap-1">
+                <button
+                  onClick={() => setSelectedFolderId(folder.id)}
+                  className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                    selectedFolderId === folder.id
+                      ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                  />
-                </svg>
-                Retour à l&apos;accueil
-              </button>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                Historique des meetings
-              </h1>
-              <p className="mt-2 text-gray-600 dark:text-gray-400">
-                {meetings.length} enregistrement{meetings.length > 1 ? 's' : ''}
-              </p>
+                  <div className="w-3 h-3 rounded" style={{ backgroundColor: folder.color || '#6366f1' }}></div>
+                  <span className="flex-1 text-left truncate">{folder.name}</span>
+                  <span className="text-xs">{folder._count?.meetings || 0}</span>
+                </button>
+                <button
+                  onClick={() => openEditFolderModal(folder)}
+                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-opacity"
+                  title="Éditer"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => handleDeleteFolder(folder.id)}
+                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-opacity text-red-600 dark:text-red-400"
+                  title="Supprimer"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
             </div>
-            <button
-              onClick={() => router.push('/')}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-            >
-              Nouveau meeting
-            </button>
-          </div>
+          ))}
         </div>
       </div>
 
-      {/* Meeting list */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {meetings.length === 0 ? (
+      {/* Main content */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <div className="px-4 sm:px-6 lg:px-8 py-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                  {selectedFolderId
+                    ? folders.find(f => f.id === selectedFolderId)?.name || 'Dossier'
+                    : 'Non classés'}
+                </h1>
+                <p className="mt-2 text-gray-600 dark:text-gray-400">
+                  {filteredMeetings.length} enregistrement{filteredMeetings.length > 1 ? 's' : ''}
+                </p>
+              </div>
+              <button
+                onClick={() => router.push('/')}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+              >
+                Nouveau meeting
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Meeting list */}
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-8">
+          {filteredMeetings.length === 0 ? (
           <div className="text-center py-12">
             <svg
               className="mx-auto h-12 w-12 text-gray-400"
@@ -263,7 +482,7 @@ export default function HistoryPage() {
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {meetings.map((meeting) => (
+            {filteredMeetings.map((meeting) => (
               <div
                 key={meeting.id}
                 className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow overflow-hidden"
@@ -329,9 +548,24 @@ export default function HistoryPage() {
                     </div>
                   )}
 
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
                     {formatDate(meeting.createdAt)}
                   </p>
+
+                  <div className="mb-4">
+                    <select
+                      value={meeting.folderId || ''}
+                      onChange={(e) => handleMoveMeeting(meeting.id, e.target.value || null)}
+                      className="w-full text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                      <option value="">Non classé</option>
+                      {folders.map(folder => (
+                        <option key={folder.id} value={folder.id}>
+                          {folder.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
                   <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mb-4">
                     <span className="flex items-center gap-1">
@@ -408,6 +642,7 @@ export default function HistoryPage() {
             ))}
           </div>
         )}
+        </div>
       </div>
 
       {/* Delete confirmation modal */}
@@ -462,6 +697,75 @@ export default function HistoryPage() {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Folder modal */}
+      {showFolderModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              {folderModalMode === 'create' ? 'Nouveau dossier' : 'Modifier le dossier'}
+            </h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Nom du dossier *
+                </label>
+                <input
+                  type="text"
+                  value={folderFormData.name}
+                  onChange={(e) => setFolderFormData({ ...folderFormData, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                  placeholder="Ex: Projets clients"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Description
+                </label>
+                <textarea
+                  value={folderFormData.description}
+                  onChange={(e) => setFolderFormData({ ...folderFormData, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                  rows={3}
+                  placeholder="Description optionnelle"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Couleur
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={folderFormData.color}
+                    onChange={(e) => setFolderFormData({ ...folderFormData, color: e.target.value })}
+                    className="w-12 h-10 border border-gray-300 dark:border-gray-600 rounded cursor-pointer"
+                  />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">{folderFormData.color}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 justify-end mt-6">
+              <button
+                onClick={() => setShowFolderModal(false)}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleSaveFolder}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                {folderModalMode === 'create' ? 'Créer' : 'Enregistrer'}
+              </button>
             </div>
           </div>
         </div>

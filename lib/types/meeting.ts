@@ -67,6 +67,8 @@ export interface Meeting {
   status: 'active' | 'processing' | 'completed'
   type: 'audio-only' | 'screen-share' | 'upload' // Track the recording method
   duration?: number // Duration in seconds (for uploaded files)
+  folderId?: string | null // Folder organization
+  templateId?: string | null // Template used for summary
 }
 
 export interface TranscriptSegment {

@@ -22,6 +22,8 @@ model User {
   accounts      Account[]
   sessions      Session[]
   meetings      Meeting[]
+  templates     Template[]
+  folders       Folder[]
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -85,6 +87,14 @@ model Meeting {
   // Notes taken during the meeting
   notes             String?  // HTML notes
 
+  // Template relationship
+  templateId        String?
+  template          Template? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  // Folder relationship
+  folderId          String?
+  folder            Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
+
   // Owner relationship
   userId            String
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -95,4 +105,50 @@ model Meeting {
   @@index([status])
   @@index([createdAt])
   @@index([userId])
+  @@index([templateId])
+  @@index([folderId])
+}
+
+model Template {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  structure   String    // JSON object defining the template structure
+  isDefault   Boolean   @default(false)
+
+  // Owner relationship (null for system templates)
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  meetings    Meeting[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([isDefault])
+}
+
+model Folder {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  color       String?   // Hex color for folder display
+
+  // Parent folder relationship (for nested folders)
+  parentId    String?
+  parent      Folder?   @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Folder[]  @relation("FolderHierarchy")
+
+  // Owner relationship
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  meetings    Meeting[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([parentId])
 }

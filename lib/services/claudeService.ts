@@ -91,7 +91,8 @@ Réponds EXCLUSIVEMENT avec un JSON valide selon ce schéma:
 export async function generateFinalSummary(
   transcript: string[],
   validatedSuggestions?: Suggestions,
-  userNotes?: string
+  userNotes?: string,
+  templateStructure?: any
 ): Promise<Summary> {
   try {
     const fullTranscript = transcript.join('\n')
@@ -120,7 +121,14 @@ IMPORTANT: L'utilisateur a pris ces notes pendant la réunion. Tu dois:
 3. Utiliser ces notes comme base pour "enhancedNotes" en y ajoutant le contexte de la transcription`
     }
 
-    userPrompt += `
+    // If a template is provided, use its custom prompt and structure
+    if (templateStructure?.prompt) {
+      userPrompt += `
+
+${templateStructure.prompt}`
+    } else {
+      // Default prompt
+      userPrompt += `
 
 Contrainte:
 - Prioriser les éléments VALIDÉS si fournis.
@@ -168,6 +176,7 @@ Réponds EXCLUSIVEMENT avec un JSON valide selon ce schéma:
   },
   "enhancedNotes": "string (notes enrichies structurées en HTML avec h2/h3/ul/li/strong/em/p - TOUJOURS générer)"
 }`
+    }
 
     const message = await anthropic.messages.create({
       model: 'claude-3-haiku-20240307',
