@@ -3,6 +3,7 @@ import { meetingStore } from '@/lib/services/meetingStore'
 import { generateFinalSummary } from '@/lib/services/claudeService'
 import { prisma } from '@/lib/prisma'
 import { ensureTempDir } from '@/lib/tempDir'
+import { sendSummaryReadyEmail } from '@/lib/services/emailService'
 
 // Utility function to retry database operations
 async function retryOperation<T>(
@@ -30,7 +31,7 @@ async function retryOperation<T>(
 
 export async function POST(request: Request) {
   try {
-    const { meetingId, async = true } = await request.json()
+    const { meetingId, async = true, force = false } = await request.json()
 
     if (!meetingId) {
       return NextResponse.json(
@@ -73,6 +74,11 @@ export async function POST(request: Request) {
         type: dbMeeting.type as 'audio-only' | 'screen-share' | 'upload',
         duration: dbMeeting.duration ?? undefined,
       }
+    }
+
+    // If force is true, bypass status check and regenerate
+    if (force) {
+      console.log(`🔄 Force regenerating summary for meeting ${meetingId}`)
     }
 
     // Update status to processing first with retry
@@ -270,6 +276,35 @@ async function generateSummaryAsync(meetingId: string, meeting: any) {
     }
 
     console.log(`✅ Async summary generation completed for meeting ${meetingId}`)
+
+    // Send email notification
+    try {
+      // Get the updated meeting with user info
+      const meetingWithUser = await retryOperation(() =>
+        prisma.meeting.findUnique({
+          where: { id: meetingId },
+          include: { user: true },
+        })
+      )
+
+      if (meetingWithUser && meetingWithUser.user.email) {
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+        const meetingTitle = meetingWithUser.title || `Meeting ${meetingId.slice(0, 8)}`
+
+        console.log(`📧 Sending email notification to ${meetingWithUser.user.email}`)
+        await sendSummaryReadyEmail(
+          meetingWithUser.user.email,
+          meetingId,
+          meetingTitle,
+          summary,
+          baseUrl
+        )
+        console.log(`✅ Email notification sent successfully`)
+      }
+    } catch (emailError) {
+      // Log error but don't fail the whole process
+      console.error(`⚠️ Failed to send email notification:`, emailError)
+    }
   } catch (error) {
     console.error(`❌ Async summary generation failed for meeting ${meetingId}:`, error)
 

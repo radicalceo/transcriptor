@@ -495,7 +495,7 @@ export default function ScreenShareMeetingPage() {
       console.error('Error starting summary generation:', error)
     })
 
-    router.push(`/summary/${meetingId}`)
+    router.push(`/meeting/${meetingId}/processing`)
   }
 
   const saveNotes = async (notesContent: string) => {
