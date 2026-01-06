@@ -312,7 +312,11 @@ async function generateSummaryAsync(meetingId: string, meeting: any) {
     await retryOperation(() =>
       prisma.meeting.update({
         where: { id: meetingId },
-        data: { status: 'completed' }, // On met completed même si erreur pour éviter de bloquer
+        data: {
+          status: 'error',
+          // Store error message for debugging
+          notes: `Error during summary generation: ${error instanceof Error ? error.message : String(error)}`
+        },
       })
     ).catch(console.error) // Don't throw if status update fails
 

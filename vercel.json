@@ -3,6 +3,14 @@
     "app/api/upload/route.ts": {
       "maxDuration": 300,
       "memory": 1024
+    },
+    "app/api/process-uploaded/route.ts": {
+      "maxDuration": 300,
+      "memory": 1024
+    },
+    "app/api/summary/route.ts": {
+      "maxDuration": 300,
+      "memory": 1024
     }
   }
 }

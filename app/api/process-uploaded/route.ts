@@ -99,7 +99,8 @@ export async function POST(request: Request) {
           .update({
             where: { id: meetingId },
             data: {
-              status: 'completed',
+              status: 'error',
+              notes: `Error during async processing: ${error instanceof Error ? error.message : String(error)}`
             },
           })
           .catch((updateError) => {
@@ -293,7 +294,11 @@ async function processAudioFromBlob(meetingId: string, blobUrl: string) {
     await prisma.meeting
       .update({
         where: { id: meetingId },
-        data: { status: 'completed' },
+        data: {
+          status: 'error',
+          // Store error message for debugging
+          notes: `Error during processing: ${error instanceof Error ? error.message : String(error)}`
+        },
       })
       .catch(console.error)
 

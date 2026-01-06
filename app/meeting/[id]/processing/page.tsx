@@ -20,6 +20,10 @@ export default function ProcessingPage() {
     return () => clearInterval(interval)
   }, [])
 
+  // State for error handling
+  const [meetingStatus, setMeetingStatus] = useState<string>('processing')
+  const [errorMessage, setErrorMessage] = useState<string>('')
+
   // Poll le statut du meeting toutes les 5 secondes
   useEffect(() => {
     const checkStatus = async () => {
@@ -27,9 +31,17 @@ export default function ProcessingPage() {
         const response = await fetch(`/api/meeting/${meetingId}`)
         const data = await response.json()
 
-        if (data.success && data.meeting.status === 'completed' && data.meeting.summary) {
-          // Si le résumé est prêt, rediriger vers la page de résumé
-          router.push(`/summary/${meetingId}`)
+        if (data.success) {
+          setMeetingStatus(data.meeting.status)
+
+          if (data.meeting.status === 'completed' && data.meeting.summary) {
+            // Si le résumé est prêt, rediriger vers la page de résumé
+            router.push(`/summary/${meetingId}`)
+          } else if (data.meeting.status === 'error') {
+            // Si erreur, arrêter le polling et afficher l'erreur
+            setErrorMessage(data.meeting.notes || 'Une erreur est survenue lors de la génération du résumé')
+            return 'stop'
+          }
         }
       } catch (error) {
         console.error('Error checking meeting status:', error)
@@ -40,7 +52,12 @@ export default function ProcessingPage() {
     checkStatus()
 
     // Puis toutes les 5 secondes
-    const interval = setInterval(checkStatus, 5000)
+    const interval = setInterval(async () => {
+      const result = await checkStatus()
+      if (result === 'stop') {
+        clearInterval(interval)
+      }
+    }, 5000)
 
     return () => clearInterval(interval)
   }, [meetingId, router])
@@ -49,6 +66,72 @@ export default function ProcessingPage() {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
     return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
+  // Show error state
+  if (meetingStatus === 'error') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+        <div className="max-w-2xl w-full">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 md:p-12">
+            {/* Error Icon */}
+            <div className="flex justify-center mb-8">
+              <div className="w-24 h-24 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                <svg className="w-12 h-12 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+
+            {/* Error Message */}
+            <div className="text-center mb-8">
+              <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
+                Erreur lors de la génération
+              </h1>
+              <p className="text-lg text-gray-600 dark:text-gray-400 mb-6">
+                Une erreur est survenue lors de l&apos;analyse de votre réunion.
+              </p>
+
+              {/* Error Details */}
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
+                <p className="text-sm text-red-800 dark:text-red-300 text-left">
+                  {errorMessage}
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={async () => {
+                  setMeetingStatus('processing')
+                  setErrorMessage('')
+                  // Retry summary generation
+                  try {
+                    await fetch('/api/summary', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ meetingId, async: true, force: true })
+                    })
+                  } catch (error) {
+                    console.error('Error retrying:', error)
+                  }
+                }}
+                className="w-full px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors"
+              >
+                Réessayer
+              </button>
+              <button
+                onClick={() => router.push('/history')}
+                className="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg font-medium transition-colors"
+              >
+                Voir l&apos;historique
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
